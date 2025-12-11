@@ -1,0 +1,593 @@
+
+{
+  "metadata": {
+    "version": "1.0",
+    "created_date": "2025-12-09",
+    "total_queries": 50,
+    "success_criteria": {
+      "overall_accuracy": "≥90% (45/50)",
+      "amount_queries": "≥90%",
+      "gender_queries": "100%",
+      "age_queries": "100%",
+      "p95_latency": "<5s"
+    }
+  },
+  "queries": [
+    {
+      "id": "Q001",
+      "category": "amount",
+      "query": "삼성화재 암 진단금 ",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "암진단",
+        "amount": 30000000
+      },
+      "expected_answer_contains": ["3,000만원", "암 진단비"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q002",
+      "category": "amount",
+      "query": "DB손보 뇌출혈 ",
+      "expected_entities": {
+        "company": "DB",
+        "coverage_type": "뇌출혈",
+        "amount_min": 10000000
+      },
+      "expected_answer_contains": ["뇌출혈", "1,000만원"],
+      "difficulty": "medium",
+      "note": "Updated from 2,000만원 to 1,000만원 based on actual DB value (Phase 5 v6)"
+    },
+    {
+      "id": "Q003",
+      "category": "amount",
+      "query": "롯데 급성심근경색 500만원",
+      "expected_entities": {
+        "company": "롯데",
+        "coverage_type": "급성심근경색",
+        "amount": 5000000
+      },
+      "expected_answer_contains": ["급성심근경색", "500만원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q004",
+      "category": "amount",
+      "query": "한화 수술비 100만원",
+      "expected_entities": {
+        "company": "한화",
+        "coverage_type": "수술",
+        "amount": 1000000
+      },
+      "expected_answer_contains": ["수술", "100만원"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q005",
+      "category": "amount",
+      "query": "메리츠 암진단",
+      "expected_entities": {
+        "company": "메리츠",
+        "coverage_type": "암진단",
+        "amount": 30000000
+      },
+      "expected_answer_contains": ["암", "3,000만원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q006",
+      "category": "amount",
+      "query": "현대해상 뇌졸중",
+      "expected_entities": {
+        "company": "현대",
+        "coverage_type": "뇌졸중",
+        "amount": 10000000
+      },
+      "expected_answer_contains": ["뇌졸중", "1,000만원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q007",
+      "category": "amount",
+      "query": "KB손해보험 입원비 10만원",
+      "expected_entities": {
+        "company": "KB",
+        "coverage_type": "입원",
+        "amount": 100000
+      },
+      "expected_answer_contains": ["입원", "10만원"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q008",
+      "category": "amount",
+      "query": "흥국 암수술비",
+      "expected_entities": {
+        "company": "흥국",
+        "coverage_type": "암수술",
+        "amount": 6000000
+      },
+      "expected_answer_contains": ["암", "수술", "600만원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q009",
+      "category": "amount",
+      "query": "삼성 재진단암",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "재진단암",
+        "amount": 20000000
+      },
+      "expected_answer_contains": ["재진단", "2,000만원"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q010",
+      "category": "amount",
+      "query": "롯데 유사암",
+      "expected_entities": {
+        "company": "롯데",
+        "coverage_type": "유사암",
+        "amount": 300000
+      },
+      "expected_answer_contains": ["유사암", "30만원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q011",
+      "category": "amount",
+      "query": "한화 골절진단 10만원",
+      "expected_entities": {
+        "company": "한화",
+        "coverage_type": "골절",
+        "amount": 100000
+      },
+      "expected_answer_contains": ["골절", "10만원"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q012",
+      "category": "amount",
+      "query": "DB 항암치료비 300만원",
+      "expected_entities": {
+        "company": "DB",
+        "coverage_type": "항암치료",
+        "amount": 3000000
+      },
+      "expected_answer_contains": ["항암", "300만원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q013",
+      "category": "gender",
+      "query": "롯데 여성용 암 진단 보장",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "female",
+        "coverage_type": "암진단"
+      },
+      "expected_answer_contains": ["여성", "암"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q014",
+      "category": "gender",
+      "query": "롯데 남성 뇌출혈 보장금액",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "male",
+        "coverage_type": "뇌출혈"
+      },
+      "expected_answer_contains": ["남성", "뇌출혈"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q015",
+      "category": "gender",
+      "query": "롯데 여성 심근경색 보험료",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "female",
+        "coverage_type": "심근경색"
+      },
+      "expected_answer_contains": ["여성", "심근경색"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q016",
+      "category": "gender",
+      "query": "롯데 남성 암수술비",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "male",
+        "coverage_type": "암수술"
+      },
+      "expected_answer_contains": ["남성", "암"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q017",
+      "category": "gender",
+      "query": "롯데 여성 골절진단비",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "female",
+        "coverage_type": "골절"
+      },
+      "expected_answer_contains": ["여성", "골절"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q018",
+      "category": "gender",
+      "query": "롯데 남성 입원비",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "male",
+        "coverage_type": "입원"
+      },
+      "expected_answer_contains": ["남성", "입원"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q019",
+      "category": "age",
+      "query": "DB 40세 이하 가입 가능 상품",
+      "expected_entities": {
+        "company": "DB",
+        "age_max": 40
+      },
+      "expected_answer_contains": ["40세", "이하"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q020",
+      "category": "age",
+      "query": "DB 41세 이상 암보장",
+      "expected_entities": {
+        "company": "DB",
+        "age_min": 41,
+        "coverage_type": "암"
+      },
+      "expected_answer_contains": ["41세", "암"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q021",
+      "category": "age",
+      "query": "DB 40세 이하 뇌출혈",
+      "expected_entities": {
+        "company": "DB",
+        "age_max": 40,
+        "coverage_type": "뇌출혈"
+      },
+      "expected_answer_contains": ["40세", "뇌출혈"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q022",
+      "category": "age",
+      "query": "DB 41세 이상 수술비",
+      "expected_entities": {
+        "company": "DB",
+        "age_min": 41,
+        "coverage_type": "수술"
+      },
+      "expected_answer_contains": ["41세", "수술"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q023",
+      "category": "basic",
+      "query": "삼성화재 암 보장 내용",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "암"
+      },
+      "expected_answer_contains": ["삼성", "암"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q024",
+      "category": "basic",
+      "query": "한화 뇌출혈 담보",
+      "expected_entities": {
+        "company": "한화",
+        "coverage_type": "뇌출혈"
+      },
+      "expected_answer_contains": ["한화", "뇌출혈"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q025",
+      "category": "basic",
+      "query": "메리츠 급성심근경색 보험",
+      "expected_entities": {
+        "company": "메리츠",
+        "coverage_type": "급성심근경색"
+      },
+      "expected_answer_contains": ["메리츠", "심근경색"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q026",
+      "category": "basic",
+      "query": "KB 수술비 보장",
+      "expected_entities": {
+        "company": "KB",
+        "coverage_type": "수술"
+      },
+      "expected_answer_contains": ["KB", "수술"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q027",
+      "category": "basic",
+      "query": "흥국 입원비",
+      "expected_entities": {
+        "company": "흥국",
+        "coverage_type": "입원"
+      },
+      "expected_answer_contains": ["흥국", "입원"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q028",
+      "category": "basic",
+      "query": "현대 암진단비",
+      "expected_entities": {
+        "company": "현대",
+        "coverage_type": "암진단"
+      },
+      "expected_answer_contains": ["현대", "암"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q029",
+      "category": "basic",
+      "query": "롯데 골절진단",
+      "expected_entities": {
+        "company": "롯데",
+        "coverage_type": "골절"
+      },
+      "expected_answer_contains": ["롯데", "골절"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q030",
+      "category": "basic",
+      "query": "DB 뇌졸중 보장",
+      "expected_entities": {
+        "company": "DB",
+        "coverage_type": "뇌졸중"
+      },
+      "expected_answer_contains": ["DB", "뇌졸중"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q031",
+      "category": "basic",
+      "query": "삼성 유사암 보장",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "유사암"
+      },
+      "expected_answer_contains": ["삼성", "유사암"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q032",
+      "category": "basic",
+      "query": "한화 재진단암",
+      "expected_entities": {
+        "company": "한화",
+        "coverage_type": "재진단암"
+      },
+      "expected_answer_contains": ["한화", "재진단"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q033",
+      "category": "comparison",
+      "query": "삼성과 DB 암 진단금 비교",
+      "expected_entities": {
+        "companies": ["삼성", "DB"],
+        "coverage_type": "암진단"
+      },
+      "expected_answer_contains": ["삼성", "DB", "암"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q034",
+      "category": "comparison",
+      "query": "롯데와 한화 뇌출혈 보장 차이",
+      "expected_entities": {
+        "companies": ["롯데", "한화"],
+        "coverage_type": "뇌출혈"
+      },
+      "expected_answer_contains": ["롯데", "한화", "뇌출혈"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q035",
+      "category": "comparison",
+      "query": "메리츠 KB 수술비 비교",
+      "expected_entities": {
+        "companies": ["메리츠", "KB"],
+        "coverage_type": "수술"
+      },
+      "expected_answer_contains": ["메리츠", "KB", "수술"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q036",
+      "category": "comparison",
+      "query": "현대 흥국 암보험 월 보험료",
+      "expected_entities": {
+        "companies": ["현대", "흥국"],
+        "coverage_type": "암"
+      },
+      "expected_answer_contains": ["현대", "흥국", "보험료"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q037",
+      "category": "comparison",
+      "query": "삼성 롯데 심근경색 보장금액 차이",
+      "expected_entities": {
+        "companies": ["삼성", "롯데"],
+        "coverage_type": "심근경색"
+      },
+      "expected_answer_contains": ["삼성", "롯데", "심근경색"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q038",
+      "category": "comparison",
+      "query": "DB 한화 입원비 비교",
+      "expected_entities": {
+        "companies": ["DB", "한화"],
+        "coverage_type": "입원"
+      },
+      "expected_answer_contains": ["DB", "한화", "입원"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q039",
+      "category": "condition",
+      "query": "삼성 암 면책기간",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "암",
+        "query_type": "면책기간"
+      },
+      "expected_answer_contains": ["면책", "기간"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q040",
+      "category": "condition",
+      "query": "한화 뇌출혈 감액 조건",
+      "expected_entities": {
+        "company": "한화",
+        "coverage_type": "뇌출혈",
+        "query_type": "감액"
+      },
+      "expected_answer_contains": ["감액", "조건"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q041",
+      "category": "condition",
+      "query": "롯데 암 가입조건",
+      "expected_entities": {
+        "company": "롯데",
+        "coverage_type": "암",
+        "query_type": "가입조건"
+      },
+      "expected_answer_contains": ["가입", "조건"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q042",
+      "category": "condition",
+      "query": "메리츠 수술 지급 제한",
+      "expected_entities": {
+        "company": "메리츠",
+        "coverage_type": "수술",
+        "query_type": "지급제한"
+      },
+      "expected_answer_contains": ["지급", "제한"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q043",
+      "category": "premium",
+      "query": "삼성 암보험 월 보험료",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "암",
+        "query_type": "보험료"
+      },
+      "expected_answer_contains": ["보험료", "월"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q044",
+      "category": "premium",
+      "query": "롯데 여성 암진단 보험료",
+      "expected_entities": {
+        "company": "롯데",
+        "gender": "female",
+        "coverage_type": "암진단",
+        "query_type": "보험료"
+      },
+      "expected_answer_contains": ["여성", "보험료"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q045",
+      "category": "edge_case",
+      "query": "보험 없는 회사 검색",
+      "expected_entities": {},
+      "expected_answer_contains": ["없습니다", "검색 결과"],
+      "difficulty": "easy",
+      "expected_result": "no_results"
+    },
+    {
+      "id": "Q046",
+      "category": "edge_case",
+      "query": "1억원 암 진단금",
+      "expected_entities": {
+        "coverage_type": "암진단",
+        "amount": 100000000
+      },
+      "expected_answer_contains": ["1억", "없"],
+      "difficulty": "medium",
+      "expected_result": "no_results"
+    },
+    {
+      "id": "Q047",
+      "category": "edge_case",
+      "query": "삼성 자동차보험",
+      "expected_entities": {
+        "company": "삼성",
+        "coverage_type": "자동차"
+      },
+      "expected_answer_contains": ["자동차", "없"],
+      "difficulty": "easy",
+      "expected_result": "no_results"
+    },
+    {
+      "id": "Q048",
+      "category": "edge_case",
+      "query": "모든 보험사 비교",
+      "expected_entities": {},
+      "expected_answer_contains": ["8개", "보험사"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q049",
+      "category": "edge_case",
+      "query": "가장 저렴한 암보험",
+      "expected_entities": {
+        "coverage_type": "암",
+        "query_type": "최저가"
+      },
+      "expected_answer_contains": ["저렴", "암"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q050",
+      "category": "edge_case",
+      "query": "가장 비싼 뇌출혈 보장",
+      "expected_entities": {
+        "coverage_type": "뇌출혈",
+        "query_type": "최고가"
+      },
+      "expected_answer_contains": ["뇌출혈", "보장"],
+      "difficulty": "hard"
+    }
+  ]
+}

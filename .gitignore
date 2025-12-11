@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+*.coverage
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Environment variables (contains API keys)
+.env
+.env.local
+
+# Database files
+*.sqlite3
+*.db
+
+# Private/sensitive data
+private/
+examples/  # PDF documents (large files)
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Logs (except production logs)
+*.log
+!evaluation/evaluation_v5_fixed.log
+
+# Vector index backend (Qdrant)
+data/qdrant/
+
+# Checkpoints
+data/checkpoints/
+
+# Node modules (if any frontend)
+node_modules/
