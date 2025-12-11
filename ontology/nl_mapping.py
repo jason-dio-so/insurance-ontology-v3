@@ -195,58 +195,7 @@ class NLMapper:
 
         # 키워드 기반 매핑 (일반 용어 → 표준 담보명)
         # 정확한 매칭이 없을 때만 키워드 기반 검색
-        if not found:
-            # 핵심 키워드 정의 (우선순위 순)
-            # 튜플의 첫 번째 키워드가 쿼리에 있으면 해당 튜플의 모든 키워드가 담보명에 있어야 함
-            coverage_keywords = [
-                ('제자리암', '유사암', '진단'),
-                ('경계성종양', '유사암', '진단'),
-                ('유사암', '진단'),
-                ('암진단', '암', '진단'),  # "암진단"이 쿼리에 있으면 '암'과 '진단' 모두 포함 필수
-                ('뇌출혈', '뇌', '출혈'),
-                ('급성심근경색', '심근경색', '심장'),
-                ('수술', '수술'),
-                ('진단', '진단'),
-                ('암', '암'),
-            ]
-
-            for keywords in coverage_keywords:
-                # 여러 키워드 중 하나라도 매칭되면
-                query_keywords = [kw for kw in keywords if kw in query]
-                if query_keywords:
-                    # 첫 번째 키워드(복합 키워드)가 쿼리에 있으면 모든 필수 키워드를 담보명에서 확인
-                    primary_keyword = keywords[0]
-                    if primary_keyword in query:
-                        # 복합 키워드인 경우: 튜플의 모든 키워드가 담보명에 있어야 함
-                        all_matches = [
-                            c['name'] for c in self._coverage_cache
-                            if all(kw in c['name'] for kw in keywords[1:])  # 2번째 키워드부터 모두 확인
-                        ]
-                    else:
-                        # 단순 키워드인 경우: 매칭된 키워드만 확인
-                        all_matches = [
-                            c['name'] for c in self._coverage_cache
-                            if any(kw in c['name'] for kw in query_keywords)
-                        ]
-
-                    if all_matches:
-                        # 우선순위 1: 쿼리의 모든 키워드를 포함한 담보
-                        multi_keyword_matches = [
-                            c for c in all_matches
-                            if all(kw in c for kw in query_keywords)
-                        ]
-
-                        if multi_keyword_matches:
-                            found.extend(multi_keyword_matches[:3])
-                        else:
-                            # 우선순위 2: 가장 긴 키워드를 포함한 담보
-                            longest_kw = max(query_keywords, key=len)
-                            longest_matches = [c for c in all_matches if longest_kw in c]
-                            if longest_matches:
-                                found.extend(longest_matches[:3])
-                            else:
-                                found.extend(all_matches[:3])
-                        break
+        # if not found:  # 제거 - 항상 키워드 검색 스킵하여 중복 방지
 
         return list(set(found))  # 중복 제거
 
@@ -451,8 +400,9 @@ class NLMapper:
             ]
 
     def _load_coverage_cache(self):
-        """담보 정보 캐시 로드"""
+        """담보 정보 캐시 로드 (coverage 테이블 + structured_data)"""
         with self.pg_conn.cursor() as cur:
+            # 1. coverage 테이블에서 기본 담보 로드
             cur.execute("""
                 SELECT DISTINCT c.id, c.coverage_name, c.coverage_category
                 FROM coverage c
@@ -462,6 +412,30 @@ class NLMapper:
                 {"id": row[0], "name": row[1], "coverage_group": row[2]}
                 for row in cur.fetchall()
             ]
+
+            # 2. clause_embedding.metadata->structured_data에서 추가 담보명 로드
+            cur.execute("""
+                SELECT DISTINCT
+                    ce.metadata->'structured_data'->>'coverage_name' as coverage_name
+                FROM clause_embedding ce
+                WHERE ce.metadata->'structured_data'->>'coverage_name' IS NOT NULL
+                  AND ce.metadata->'structured_data'->>'coverage_name' != ''
+            """)
+
+            # 기존 담보명 set 생성 (중복 방지)
+            existing_names = {c['name'] for c in self._coverage_cache}
+
+            # structured_data의 담보명 추가 (중복 제외)
+            for row in cur.fetchall():
+                coverage_name = row[0]
+                if coverage_name and coverage_name not in existing_names:
+                    # ID는 None (coverage 테이블에 없는 담보)
+                    self._coverage_cache.append({
+                        "id": None,
+                        "name": coverage_name,
+                        "coverage_group": "기타"
+                    })
+                    existing_names.add(coverage_name)
 
     def _load_disease_cache(self):
         """질병 코드 정보 캐시 로드"""

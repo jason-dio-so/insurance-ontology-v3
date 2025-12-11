@@ -223,6 +223,97 @@ JSON Schema:
 검증 결과:"""
         return prompt
 
+    def build_info_extraction_prompt(
+        self,
+        query: str,
+        company: str,
+        product_name: str,
+        coverage_name: str,
+        benefit_amount: Optional[str],
+        info_type: str,
+        clause_texts: list
+    ) -> str:
+        """
+        단일 보험사 정보 추출 프롬프트 생성 (보장개시일, 보장한도, 가입나이 등)
+
+        Args:
+            query: 사용자 질문
+            company: 보험사명
+            product_name: 상품명
+            coverage_name: 담보명
+            benefit_amount: 보장금액 (예: "3,000만원")
+            info_type: 정보 유형 (coverage-start-date, coverage-limit, enrollment-age, exclusions, renewal-info)
+            clause_texts: 약관 조항 리스트 [{"clause_number": "", "clause_title": "", "clause_text": ""}]
+
+        Returns:
+            정보 추출 프롬프트
+        """
+        info_type_labels = {
+            "coverage-start-date": "보장개시일 / 면책기간",
+            "coverage-limit": "보장한도 / 지급제한",
+            "enrollment-age": "가입 가능 나이",
+            "exclusions": "면책사항 / 보장제외",
+            "renewal-info": "갱신 정보 (갱신 주기, 감액 비율)"
+        }
+
+        info_label = info_type_labels.get(info_type, "정보")
+
+        # 담보 기본 정보
+        coverage_info = f"""**보험사**: {company}
+**상품명**: {product_name}
+**담보명**: {coverage_name}"""
+
+        if benefit_amount:
+            coverage_info += f"\n**보장금액**: {benefit_amount}"
+
+        # 약관 조항 정리
+        clause_sections = []
+        for i, clause in enumerate(clause_texts, 1):
+            section = f"### 조항 [{i}]"
+            if clause.get("clause_title"):
+                section += f"\n**제목**: {clause['clause_title']}"
+            if clause.get("clause_number"):
+                section += f"\n**조항 번호**: {clause['clause_number']}"
+            section += f"\n\n{clause.get('clause_text', '')}"
+            clause_sections.append(section)
+
+        all_clauses = "\n\n".join(clause_sections)
+
+        prompt = f"""당신은 한국 보험 약관 전문가입니다.
+사용자가 특정 보험 상품의 담보에 대해 질문했습니다.
+
+## 담보 기본 정보
+
+{coverage_info}
+
+## 약관 조항
+
+{all_clauses}
+
+## 사용자 질문
+
+{query}
+
+## 답변 지침
+
+위 약관 조항을 바탕으로 **{info_label}**에 대해 명확하고 간결하게 답변하세요.
+
+**답변 작성 시 주의사항:**
+1. **핵심 정보를 먼저**: 질문에 대한 직접적인 답을 첫 문장에 작성하세요
+   - 예: "보장개시일은 계약일로부터 90일 경과 후입니다."
+   - 예: "가입 가능 나이는 만 15세~70세입니다."
+2. **구체적인 숫자/기간 명시**: "일정기간" 같은 모호한 표현 대신 정확한 숫자를 사용하세요
+3. **구조화된 형식**: 여러 조건이 있으면 불릿 포인트(-)로 정리하세요
+4. **일반인이 이해하기 쉽게**: 보험 전문 용어는 쉽게 풀어서 설명하세요
+5. **조항 인용**: 중요한 정보는 조항 번호를 인용하세요 (예: [조항 1])
+
+**답변하지 말아야 할 것:**
+- 약관에 없는 내용을 추측하거나 만들어내지 마세요
+- 답변할 수 없으면 "약관에서 해당 정보를 명확히 확인할 수 없습니다"라고 하세요
+
+답변:"""
+        return prompt
+
     @staticmethod
     def extract_json_from_response(response: str) -> Optional[Dict]:
         """

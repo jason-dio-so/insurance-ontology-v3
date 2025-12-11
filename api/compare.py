@@ -52,7 +52,9 @@ class ProductComparer:
         companies: List[str],
         coverage: str | List[str],
         include_sources: bool = True,
-        include_recommendation: bool = True
+        include_recommendation: bool = True,
+        exclude_keywords: List[str] = None,
+        query_keywords: List[str] = None
     ) -> Dict[str, Any]:
         """
         상품 비교 실행
@@ -124,7 +126,9 @@ class ProductComparer:
                 # 추가 정보 조회 (DB에서)
                 additional_info = self._get_additional_info(
                     company=company,
-                    coverage=cov
+                    coverage=cov,
+                    exclude_keywords=exclude_keywords,
+                    query_keywords=query_keywords
                 )
 
                 # 병합
@@ -377,10 +381,70 @@ class ProductComparer:
             row = cur.fetchone()
             return row[0] if row else None
 
+    def _get_age_conditions(
+        self,
+        company: str,
+        product_name: str,
+        coverage_name: str
+    ) -> str:
+        """
+        약관에서 가입나이 조건 추출
+
+        Args:
+            company: 회사명
+            product_name: 상품명
+            coverage_name: 담보명
+
+        Returns:
+            가입나이 범위 (예: "15세~60세") 또는 None
+        """
+        import re
+
+        with self.pg_conn.cursor() as cur:
+            # 해당 담보가 언급된 약관 조회
+            cur.execute("""
+                SELECT dc.clause_text
+                FROM document_clause dc
+                JOIN document d ON dc.document_id = d.id
+                JOIN product p ON d.product_id = p.id
+                JOIN company comp ON p.company_id = comp.id
+                WHERE comp.company_name = %s
+                  AND p.product_name = %s
+                  AND (
+                    dc.clause_text LIKE %s
+                    OR dc.clause_title LIKE %s
+                  )
+                  AND dc.clause_text LIKE '%%가입%%나이%%'
+                LIMIT 5
+            """, (company, product_name, f'%{coverage_name}%', f'%{coverage_name}%'))
+
+            rows = cur.fetchall()
+            if not rows:
+                return None
+
+            # 정규식으로 나이 범위 추출: "15세~60세", "만15세~60세" 등
+            age_pattern = re.compile(r'만?(\d+)세\s*~\s*(\d+)세')
+
+            for (clause_text,) in rows:
+                # 담보명이 포함된 줄 근처에서 나이 찾기
+                lines = clause_text.split('\n')
+                for i, line in enumerate(lines):
+                    if coverage_name in line or '가입나이' in line:
+                        # 현재 줄과 주변 3줄 검색
+                        context = '\n'.join(lines[max(0, i-1):min(len(lines), i+3)])
+                        match = age_pattern.search(context)
+                        if match:
+                            min_age, max_age = match.groups()
+                            return f"{min_age}세~{max_age}세"
+
+            return None
+
     def _get_additional_info(
         self,
         company: str,
-        coverage: str
+        coverage: str,
+        exclude_keywords: List[str] = None,
+        query_keywords: List[str] = None
     ) -> Dict[str, Any]:
         """
         DB에서 추가 정보 조회 (담보명, 보장금액, 면책기간 등)
@@ -388,31 +452,58 @@ class ProductComparer:
         Args:
             company: 회사명
             coverage: 담보명
+            exclude_keywords: 제외할 키워드 리스트
+            query_keywords: 원본 쿼리에서 추출한 키워드 리스트
 
         Returns:
             추가 정보 딕셔너리
         """
-        print(f"[DEBUG] _get_additional_info: company={company}, coverage={coverage}")
+        print(f"[DEBUG] _get_additional_info: company={company}, coverage={coverage}, exclude={exclude_keywords}, query_kw={query_keywords}")
 
         # 키워드 분해 (구체적인 키워드 우선)
         keywords = []
 
-        # 구체적 키워드 먼저 추출 (우선순위 높음)
-        if "제자리암" in coverage:
-            keywords.append("제자리암")
-        elif "경계성종양" in coverage:
-            keywords.append("경계성종양")
-        elif "유사암" in coverage or "4대유사암" in coverage:
-            keywords.append("유사암")
-        elif "암" in coverage:
-            keywords.append("암")
+        # 1. 원본 쿼리의 키워드를 먼저 활용 (더 정확함)
+        if query_keywords:
+            # 암 관련 키워드 우선순위: 제자리암 > 경계성종양 > 유사암 > 암
+            if "제자리암" in query_keywords:
+                keywords.append("제자리암")
+            elif "경계성종양" in query_keywords:
+                keywords.append("경계성종양")
+            elif "유사암" in query_keywords or "4대유사암" in query_keywords:
+                keywords.append("유사암")
+            elif "암" in query_keywords:
+                keywords.append("암")
 
-        if "진단" in coverage:
-            keywords.append("진단")
-        if "수술" in coverage:
-            keywords.append("수술")
+            # 보장 타입 키워드 추가
+            if "진단" in query_keywords:
+                keywords.append("진단")
+            if "수술" in query_keywords:
+                keywords.append("수술")
+
+        # 2. query_keywords가 없거나 충분하지 않으면 coverage에서 추출
+        if not keywords:
+            # 구체적 키워드 먼저 추출 (우선순위 높음)
+            if "제자리암" in coverage:
+                keywords.append("제자리암")
+            elif "경계성종양" in coverage:
+                keywords.append("경계성종양")
+            elif "유사암" in coverage or "4대유사암" in coverage:
+                keywords.append("유사암")
+            elif "암" in coverage:
+                keywords.append("암")
+
+            if "진단" in coverage:
+                keywords.append("진단")
+            if "수술" in coverage:
+                keywords.append("수술")
 
         print(f"[DEBUG] Keywords: {keywords}")
+
+        # 키워드가 없으면 데이터 없음 반환
+        if not keywords:
+            print(f"[DEBUG] No keywords extracted from coverage: {coverage}")
+            return {"status": "no_data"}
 
         # DB에서 coverage/benefit 데이터 직접 조회
         # 모든 키워드가 포함된 담보 찾기
@@ -421,6 +512,18 @@ class ProductComparer:
             like_conditions = " AND ".join([f"cov.coverage_name LIKE %s" for _ in keywords])
             like_params = [f'%{kw}%' for kw in keywords]
 
+            # 특수 패턴 제외 조건
+            # psycopg2에서는 % 리터럴을 %%로 이스케이프해야 함
+            exclude_condition = ""
+
+            # "유사암" 검색 시: "(유사암제외)" 패턴은 제외하고 실제 유사암 담보만 조회
+            if "유사암" in keywords:
+                exclude_condition = " AND cov.coverage_name NOT LIKE '%%유사암제외%%' AND cov.coverage_name NOT LIKE '%%유사암 제외%%'"
+            # "암" 키워드로 검색할 때: "유사암" 단독 담보는 제외하되, "(유사암제외)"는 허용
+            elif "암" in keywords:
+                exclude_condition = " AND (cov.coverage_name NOT LIKE '%%유사암%%' OR cov.coverage_name LIKE '%%유사암제외%%' OR cov.coverage_name LIKE '%%유사암 제외%%')"
+
+            # ORDER BY: 보장금액 높은 순 (단, "(유사암제외)" 패턴은 긍정적 의미이므로 우선순위 유지)
             query = f"""
                 SELECT
                     comp.company_name,
@@ -433,20 +536,52 @@ class ProductComparer:
                 LEFT JOIN benefit b ON cov.id = b.coverage_id
                 WHERE comp.company_name = %s
                   AND ({like_conditions})
-                ORDER BY b.benefit_amount DESC NULLS LAST
+                  {exclude_condition}
+                ORDER BY
+                    b.benefit_amount DESC NULLS LAST
                 LIMIT 1
             """
 
-            cur.execute(query, (company, *like_params))
+            print(f"[DEBUG] SQL Query: {query}")
+            print(f"[DEBUG] Parameters: company={company}, like_params={like_params}")
+
+            # 파라미터 튜플 생성
+            params = (company, *like_params)
+            print(f"[DEBUG] Final params tuple: {params}, type: {type(params)}, len: {len(params)}")
+
+            try:
+                cur.execute(query, params)
+            except Exception as e:
+                print(f"[ERROR] SQL execution failed: {e}")
+                print(f"[ERROR] Query has {query.count('%s')} placeholders, but got {len(params)} parameters")
+                import traceback
+                traceback.print_exc()
+                return {"status": "no_data", "message": f"SQL error: {str(e)}"}
 
             row = cur.fetchone()
             if row:
                 company_name, product_name, coverage_name, benefit_amount = row
                 print(f"[DEBUG] Found coverage: {coverage_name}, amount: {benefit_amount}")
 
+                # 특수 패턴 체크: "유사암" 검색 시 "(유사암제외)" 담보는 제외
+                if "유사암" in keywords:
+                    if "유사암제외" in coverage_name or "유사암 제외" in coverage_name:
+                        print(f"[DEBUG] Excluding coverage with '유사암제외' pattern: {coverage_name}")
+                        return {"status": "no_data"}
+
+                # 제외 키워드 체크
+                if exclude_keywords:
+                    should_exclude = any(kw in coverage_name for kw in exclude_keywords)
+                    if should_exclude:
+                        print(f"[DEBUG] Excluding coverage due to keywords: {coverage_name}")
+                        return {"status": "no_data"}
+
                 # 담보명 정리: 앞의 숫자 제거 (예: "36 재진단암진단비" -> "재진단암진단비")
                 import re
                 cleaned_coverage_name = re.sub(r'^\d+\s+', '', coverage_name)
+
+                # 가입 조건 추출 (약관에서)
+                age_range = self._get_age_conditions(company, product_name, cleaned_coverage_name)
 
                 return {
                     "productName": product_name,
@@ -454,7 +589,8 @@ class ProductComparer:
                     "amount": int(benefit_amount) if benefit_amount else 0,
                     "exemptionPeriod": None,
                     "reductionPeriod": None,
-                    "specialNotes": []
+                    "specialNotes": [],
+                    "ageRange": age_range  # 가입나이 추가
                 }
             else:
                 print(f"[DEBUG] No coverage found in DB, searching document clauses...")

@@ -24,6 +24,7 @@ from retrieval.context_assembly import ContextAssembler
 from retrieval.prompts import PromptBuilder
 from ontology.nl_mapping import NLMapper
 from retrieval.llm_client import LLMClient
+from api.info_extractor import InfoExtractor
 
 load_dotenv()
 
@@ -71,6 +72,14 @@ class ComparisonResult(BaseModel):
     notes: Optional[str] = None
 
 
+class SearchParams(BaseModel):
+    """템플릿 기반 검색 파라미터"""
+    coverageKeyword: Optional[str] = None
+    exactMatch: Optional[bool] = False
+    excludeKeywords: Optional[List[str]] = None
+    docTypes: Optional[List[str]] = None
+
+
 class HybridSearchRequest(BaseModel):
     """하이브리드 검색 요청"""
     query: str = Field(..., description="사용자 질문")
@@ -78,6 +87,8 @@ class HybridSearchRequest(BaseModel):
     selectedCategories: Optional[List[str]] = None
     selectedCoverageTags: Optional[List[str]] = None
     lastCoverage: Optional[str] = Field(None, description="이전 대화에서 언급된 담보명 (컨텍스트 유지용)")
+    templateId: Optional[str] = Field(None, description="선택된 템플릿 ID")
+    searchParams: Optional[SearchParams] = Field(None, description="템플릿 기반 구조화된 검색 파라미터")
 
 
 class HybridSearchResponse(BaseModel):
@@ -170,12 +181,13 @@ assembler: Optional[ContextAssembler] = None
 prompt_builder: Optional[PromptBuilder] = None
 nl_mapper: Optional[NLMapper] = None
 llm_client: Optional[LLMClient] = None
+info_extractor: Optional[InfoExtractor] = None
 
 
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global retriever, assembler, prompt_builder, nl_mapper, llm_client
+    global retriever, assembler, prompt_builder, nl_mapper, llm_client, info_extractor
 
     postgres_url = os.getenv(
         "POSTGRES_URL",
@@ -186,6 +198,7 @@ async def startup_event():
     assembler = ContextAssembler(postgres_url=postgres_url)
     prompt_builder = PromptBuilder()
     nl_mapper = NLMapper(postgres_url=postgres_url)
+    info_extractor = InfoExtractor(postgres_url=postgres_url)
     # LLM client initialization - model selection based on backend
     backend = os.getenv("LLM_BACKEND", "ollama")
     if backend == "openai":
@@ -272,7 +285,21 @@ async def hybrid_search(request: HybridSearchRequest):
             gender = request.userProfile.gender
 
         # 2. NL Mapping: Extract entities from query
-        nl_entities = nl_mapper.extract_entities(request.query)
+        # 템플릿 기반 검색이면 템플릿 파라미터 우선 사용
+        if request.templateId and request.searchParams:
+            print(f"[DEBUG] Template-based search: {request.templateId}")
+            nl_entities = {"filters": {}, "companies": [], "coverages": []}
+
+            # 회사명만 추출 (NL Mapper 사용)
+            temp_entities = nl_mapper.extract_entities(request.query)
+            nl_entities["companies"] = temp_entities.get("companies", [])
+            nl_entities["filters"]["company_id"] = temp_entities.get("filters", {}).get("company_id")
+
+            # 담보명은 템플릿에서 지정한 키워드로만 제한
+            if request.searchParams.coverageKeyword:
+                nl_entities["coverages"] = [request.searchParams.coverageKeyword]
+        else:
+            nl_entities = nl_mapper.extract_entities(request.query)
 
         # 3. Enhance entities with user context
         if age:
@@ -283,7 +310,8 @@ async def hybrid_search(request: HybridSearchRequest):
             nl_entities["coverage_tags"] = request.selectedCoverageTags
 
         # 4. Check if it's a multi-company comparison query
-        company_names_in_query = nl_entities.get("entities", {}).get("companies", [])
+        # 템플릿 기반 검색과 일반 검색 모두 지원
+        company_names_in_query = nl_entities.get("companies", [])
         print(f"[DEBUG] NL entities: {nl_entities}")
         print(f"[DEBUG] Extracted companies: {company_names_in_query}")
 
@@ -322,10 +350,132 @@ async def hybrid_search(request: HybridSearchRequest):
             valid_coverages = [request.lastCoverage]
             print(f"[DEBUG] Using lastCoverage from context: {request.lastCoverage}")
 
+        # Check if it's a single-company information extraction query
+        info_templates = {
+            "coverage-start-date": "coverage-start-date",
+            "coverage-limit": "coverage-limit",
+            "enrollment-age": "enrollment-age",
+            "exclusions": "exclusions",
+            "renewal-info": "renewal-info"
+        }
+
+        if (len(company_names_in_query) == 1 and
+            request.templateId in info_templates and
+            valid_coverages):
+            # Single-company information extraction
+            company = company_names_in_query[0]
+            coverage_keyword = valid_coverages[0]
+            info_type = info_templates[request.templateId]
+
+            print(f"[DEBUG] InfoExtractor: {company}, coverage: {coverage_keyword}, info_type: {info_type}")
+
+            query_keywords = nl_entities.get("keywords", [])
+            print(f"[DEBUG] Query keywords from NL: {query_keywords}")
+
+            try:
+                info_result = info_extractor.extract_info(
+                    company=company,
+                    coverage_keyword=coverage_keyword,
+                    info_type=info_type,
+                    query_keywords=query_keywords if query_keywords else None
+                )
+
+                # Initialize variables
+                coverage_name = coverage_keyword  # Default to query coverage
+
+                # Format response
+                if info_result["status"] == "no_data":
+                    answer = f"**{company}**\n\n{info_result['message']}"
+                    sources = []
+                elif info_result["status"] == "error":
+                    answer = f"**오류**\n\n{info_result['message']}"
+                    sources = []
+                else:
+                    # Success - Use LLM to generate clear answer
+                    product_name = info_result.get("product", "N/A")
+                    coverage_name = info_result.get("coverage", coverage_keyword)
+
+                    # Get benefit amount from info_result
+                    benefit_amount_raw = info_result.get("benefit_amount")
+                    benefit_amount = f"{int(benefit_amount_raw):,}원" if benefit_amount_raw else None
+
+                    # Build LLM prompt with coverage info and clauses
+                    clause_texts = info_result.get("sources", [])
+
+                    prompt = prompt_builder.build_info_extraction_prompt(
+                        query=request.query,
+                        company=company,
+                        product_name=product_name,
+                        coverage_name=coverage_name,
+                        benefit_amount=benefit_amount,
+                        info_type=info_type,
+                        clause_texts=clause_texts
+                    )
+
+                    # Generate LLM answer
+                    print(f"[DEBUG] Generating LLM answer for info extraction")
+                    llm_answer = llm_client.generate(prompt)
+
+                    # Build final answer with header
+                    answer_parts = [
+                        f"# {company} - {coverage_name}",
+                        f"**상품명**: {product_name}",
+                    ]
+                    if benefit_amount:
+                        answer_parts.append(f"**보장금액**: {benefit_amount}")
+
+                    answer_parts.extend([
+                        "",
+                        "## 정보",
+                        llm_answer
+                    ])
+
+                    answer = "\n".join(answer_parts)
+
+                    # Format sources - 중복 제거
+                    sources = []
+                    seen_clauses = set()
+                    for src in clause_texts:
+                        # clause_text를 기준으로 중복 체크
+                        clause_key = f"{src.get('clause_number', '')}:{src.get('clause_title', '')}:{src.get('clause_text', '')[:100]}"
+                        if clause_key not in seen_clauses:
+                            seen_clauses.add(clause_key)
+                            sources.append({
+                                "company": company,
+                                "product": product_name,
+                                "clause": f"[{src.get('clause_number', 'N/A')}] {src.get('clause_title', '')}: {src.get('clause_text', '')[:150]}...",
+                                "docType": "terms"
+                            })
+                            if len(sources) >= 3:  # 최대 3개까지만
+                                break
+
+                return HybridSearchResponse(
+                    answer=answer,
+                    comparisonTable=None,
+                    sources=sources if sources else None,
+                    coverage=coverage_name
+                )
+
+            except Exception as e:
+                print(f"[ERROR] InfoExtractor failed: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fall through to general search
+
         # If multiple companies mentioned or comparison intent detected, use ProductComparer
         if len(company_names_in_query) >= 2 and valid_coverages:
             # Multi-company comparison using ProductComparer (Phase 6.1)
             print(f"[DEBUG] ProductComparer: {company_names_in_query}, coverages: {valid_coverages}")
+
+            # 템플릿 기반 검색이면 제외 키워드 적용
+            exclude_keywords = []
+            if request.templateId and request.searchParams and request.searchParams.excludeKeywords:
+                exclude_keywords = request.searchParams.excludeKeywords
+                print(f"[DEBUG] Exclude keywords: {exclude_keywords}")
+
+            # NL entities에서 추출한 키워드 전달
+            query_keywords = nl_entities.get("keywords", [])
+            print(f"[DEBUG] Query keywords from NL: {query_keywords}")
 
             from api.compare import ProductComparer
             comparer = ProductComparer(hybrid_retriever=retriever)
@@ -335,7 +485,9 @@ async def hybrid_search(request: HybridSearchRequest):
                     companies=company_names_in_query,
                     coverage=valid_coverages,  # Pass list of coverages
                     include_sources=True,
-                    include_recommendation=True
+                    include_recommendation=True,
+                    exclude_keywords=exclude_keywords if exclude_keywords else None,
+                    query_keywords=query_keywords if query_keywords else None
                 )
 
                 # Convert ProductComparer result to HybridSearchResponse format
@@ -361,17 +513,22 @@ async def hybrid_search(request: HybridSearchRequest):
                         coverage_name_full = data.get("coverageName", cov)
                         amount = data.get("amount", 0)
                         amount_str = f"{int(amount):,}원" if amount else "N/A"
+                        age_range = data.get("ageRange")
 
                         answer_parts.append(f"\n**{company}** ({product_name})")
                         answer_parts.append(f"- 담보: {coverage_name_full}")
                         answer_parts.append(f"- 보장금액: {amount_str}")
+                        if age_range:
+                            answer_parts.append(f"- 가입나이: {age_range}")
 
                         # Build comparison table row
+                        notes = f"가입나이: {age_range}" if age_range else None
                         comparison_table_data.append({
                             "company": company,
                             "product": product_name,
                             "coverage": coverage_name_full,
-                            "benefit": amount_str
+                            "benefit": amount_str,
+                            "notes": notes
                         })
 
                 # 주요 차이점 분석
@@ -404,18 +561,23 @@ async def hybrid_search(request: HybridSearchRequest):
 
                 llm_answer = "\n".join(answer_parts)
 
-                # Format sources from ProductComparer
+                # Format sources from ProductComparer - 중복 제거
                 sources = []
+                seen_sources = set()
                 for key, data in comparison_result["comparison"].items():
                     if "sources" in data:
                         company = data.get("company", "")
                         for src in data["sources"]:
-                            sources.append({
-                                "company": src.get("company", company),
-                                "product": src.get("product", data.get("productName", "")),
-                                "clause": src.get("clause", "")[:150],
-                                "docType": src.get("docType", "")
-                            })
+                            # clause를 기준으로 중복 체크
+                            clause_key = f"{src.get('company', company)}:{src.get('clause', '')[:100]}"
+                            if clause_key not in seen_sources:
+                                seen_sources.add(clause_key)
+                                sources.append({
+                                    "company": src.get("company", company),
+                                    "product": src.get("product", data.get("productName", "")),
+                                    "clause": src.get("clause", "")[:150],
+                                    "docType": src.get("docType", "")
+                                })
 
                 return HybridSearchResponse(
                     answer=llm_answer,
@@ -543,27 +705,37 @@ async def hybrid_search(request: HybridSearchRequest):
             context=context_str
         )
 
-        # 7. Generate LLM answer
-        print(f"[DEBUG] Starting LLM generation with prompt length: {len(prompt)}")
-        import time
-        start_time = time.time()
-        llm_answer = llm_client.generate(prompt)
-        elapsed = time.time() - start_time
-        print(f"[DEBUG] LLM generation completed in {elapsed:.2f}s")
+        # 7. Generate LLM answer (DISABLED - 충분히 검토 후 활성화 예정)
+        # print(f"[DEBUG] Starting LLM generation with prompt length: {len(prompt)}")
+        # import time
+        # start_time = time.time()
+        # llm_answer = llm_client.generate(prompt)
+        # elapsed = time.time() - start_time
+        # print(f"[DEBUG] LLM generation completed in {elapsed:.2f}s")
+
+        # LLM 호출 대신 검색된 데이터만 반환
+        print(f"[DEBUG] LLM generation DISABLED - returning search results only")
+        llm_answer = "검색 결과를 확인해주세요. (LLM 응답 생성은 현재 비활성화되어 있습니다)"
 
         # 8. Format comparison table (use enriched clauses from context)
         enriched_clauses = context.get('clauses', []) if isinstance(context, dict) else []
         comparison_table = format_comparison_table(enriched_clauses, nl_entities)
 
         # 9. Format sources (use enriched clauses)
-        sources = [
-            {
-                "company": c.get("company_name", "N/A"),
-                "product": c.get("product_name", "N/A"),
-                "clause": f"[{c.get('clause_number', 'N/A')}] {c.get('clause_title', '')}: {c.get('clause_text', '')[:150]}..."
-            }
-            for c in enriched_clauses[:5]
-        ]
+        # 중복 제거 후 sources 생성
+        sources = []
+        seen_clauses = set()
+        for c in enriched_clauses:
+            clause_key = f"{c.get('clause_number', '')}:{c.get('clause_title', '')}:{c.get('clause_text', '')[:100]}"
+            if clause_key not in seen_clauses:
+                seen_clauses.add(clause_key)
+                sources.append({
+                    "company": c.get("company_name", "N/A"),
+                    "product": c.get("product_name", "N/A"),
+                    "clause": f"[{c.get('clause_number', 'N/A')}] {c.get('clause_title', '')}: {c.get('clause_text', '')[:150]}..."
+                })
+                if len(sources) >= 5:  # 최대 5개까지만
+                    break
 
         return HybridSearchResponse(
             answer=llm_answer,
@@ -586,6 +758,257 @@ async def hybrid_search(request: HybridSearchRequest):
                 "traceback": error_trace.split('\n')[-5:]  # Last 5 lines
             }
         )
+
+
+@app.get("/api/companies")
+async def get_companies():
+    """
+    보험사 리스트 조회
+
+    Returns:
+        List of company names
+    """
+    if not retriever:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT company_name
+                FROM company
+                ORDER BY company_name
+            """)
+
+            companies = [row[0] for row in cur.fetchall()]
+            cur.close()
+
+            return {"companies": companies}
+        finally:
+            conn.close()
+
+    except Exception as e:
+        print(f"Error in get_companies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/companies/{company_name}/products")
+async def get_company_products(company_name: str):
+    """
+    특정 보험사의 상품 리스트 조회
+
+    Args:
+        company_name: 보험사명
+
+    Returns:
+        List of products
+    """
+    if not retriever:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    try:
+        import psycopg2
+        from urllib.parse import unquote
+
+        # URL 디코딩
+        company_name = unquote(company_name)
+
+        conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT p.product_name
+                FROM product p
+                JOIN company c ON p.company_id = c.id
+                WHERE c.company_name = %s
+                ORDER BY p.product_name
+            """, (company_name,))
+
+            products = []
+            for row in cur.fetchall():
+                product_name = row[0]
+                if product_name:
+                    products.append(product_name)
+
+            return {"products": products}
+
+        finally:
+            conn.close()
+
+    except Exception as e:
+        print(f"Error fetching products: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/companies/{company_name}/products/{product_name}/coverages")
+async def get_product_coverages(company_name: str, product_name: str):
+    """
+    특정 보험사의 특정 상품의 담보 리스트 조회
+
+    Args:
+        company_name: 보험사명
+        product_name: 상품명
+
+    Returns:
+        List of coverages with benefit amounts
+    """
+    if not retriever:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    try:
+        import psycopg2
+        from urllib.parse import unquote
+
+        # URL 디코딩
+        company_name = unquote(company_name)
+        product_name = unquote(product_name)
+
+        conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT
+                    cov.coverage_name,
+                    b.benefit_amount,
+                    p.product_name
+                FROM coverage cov
+                JOIN product p ON cov.product_id = p.id
+                JOIN company c ON p.company_id = c.id
+                LEFT JOIN benefit b ON cov.id = b.coverage_id
+                WHERE c.company_name = %s
+                  AND p.product_name = %s
+                ORDER BY cov.coverage_name
+            """, (company_name, product_name))
+
+            coverages = []
+            seen = set()
+            for row in cur.fetchall():
+                coverage_name, benefit_amount, product_name = row
+
+                # 잘못된 데이터 필터링
+                if not coverage_name or len(coverage_name.strip()) < 3:
+                    continue
+
+                coverage_stripped = coverage_name.strip()
+
+                # 숫자로 시작하는 경우 (조항 번호 등)
+                if coverage_stripped[0].isdigit():
+                    # "10년형" 같은 기간 데이터 제외
+                    if "년" in coverage_stripped and len(coverage_stripped) <= 4:
+                        continue
+                    # "119", "121" 같은 순수 숫자 제외
+                    if coverage_stripped.split()[0].isdigit():
+                        continue
+
+                # 중복 제거 (담보명 기준)
+                if coverage_name in seen:
+                    continue
+                seen.add(coverage_name)
+
+                coverages.append({
+                    "coverage_name": coverage_name,
+                    "benefit_amount": benefit_amount,
+                    "product_name": product_name
+                })
+
+            return {"coverages": coverages}
+
+        finally:
+            conn.close()
+
+    except Exception as e:
+        print(f"Error fetching coverages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/companies/{company_name}/coverages")
+async def get_company_coverages(company_name: str):
+    """
+    특정 보험사의 담보 리스트 조회
+
+    Args:
+        company_name: 보험사명
+
+    Returns:
+        List of coverages with benefit amounts
+    """
+    if not retriever:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    try:
+        import psycopg2
+        from urllib.parse import unquote
+
+        # URL 디코딩
+        company_name = unquote(company_name)
+
+        conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT
+                    cov.coverage_name,
+                    b.benefit_amount,
+                    p.product_name
+                FROM coverage cov
+                JOIN product p ON cov.product_id = p.id
+                JOIN company comp ON p.company_id = comp.id
+                LEFT JOIN benefit b ON cov.id = b.coverage_id
+                WHERE comp.company_name = %s
+                ORDER BY
+                    b.benefit_amount DESC NULLS LAST,
+                    cov.coverage_name
+                LIMIT 100
+            """, (company_name,))
+
+            coverages = []
+            seen = set()
+
+            for row in cur.fetchall():
+                coverage_name, benefit_amount, product_name = row
+
+                # 잘못된 데이터 필터링
+                # 1. 숫자로만 구성된 담보명 제외
+                # 2. "10년", "15년" 같은 기간 데이터 제외
+                # 3. 너무 짧은 담보명 제외 (3자 미만)
+                if not coverage_name or len(coverage_name.strip()) < 3:
+                    continue
+
+                coverage_stripped = coverage_name.strip()
+
+                # 숫자로 시작하는 경우 (조항 번호 등)
+                if coverage_stripped[0].isdigit():
+                    # "10년형" 같은 기간 데이터 제외
+                    if "년" in coverage_stripped and len(coverage_stripped) <= 4:
+                        continue
+                    # "119", "121" 같은 순수 숫자 제외
+                    if coverage_stripped.split()[0].isdigit():
+                        continue
+
+                # 중복 제거 (담보명 기준)
+                if coverage_name in seen:
+                    continue
+                seen.add(coverage_name)
+
+                coverages.append({
+                    "coverage_name": coverage_name,
+                    "benefit_amount": int(benefit_amount) if benefit_amount else None,
+                    "product_name": product_name
+                })
+
+            cur.close()
+
+            return {"coverages": coverages}
+        finally:
+            conn.close()
+
+    except Exception as e:
+        print(f"Error in get_company_coverages: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/compare", response_model=List[ComparisonResult])
