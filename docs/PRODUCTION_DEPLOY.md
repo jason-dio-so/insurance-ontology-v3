@@ -229,11 +229,13 @@ MATCH (n) RETURN labels(n) as label, count(*) as count ORDER BY count DESC
 # Expected Results:
 # Coverage: 384
 # Benefit: 384
+# Document: 38
+# DiseaseCode: 131
 # Company: 8
 # Product: 8
 # DiseaseCodeSet: 9
-# DiseaseCode: 131
-# Total: 640 nodes
+# ProductVariant: 4
+# Total: 966 nodes
 ```
 
 **관계 확인**:
@@ -244,8 +246,11 @@ MATCH ()-[r]->() RETURN type(r) as relationship, count(*) as count ORDER BY coun
 # COVERS: 384
 # APPLIES_TO: 131
 # HAS_COVERAGE: 384
+# HAS_BENEFIT: 384
 # OFFERS: 16
-# Total: 623 relationships
+# HAS_VARIANT: 4
+# HAS_DOCUMENT: 38
+# Total: 997 relationships (approximate)
 ```
 
 ---
