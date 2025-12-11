@@ -145,11 +145,19 @@
 
 **1. Hybrid Document Model**
 ```
-약관:       100% Text → TextParser
-사업방법서: 50% Mixed → HybridParser (Text + Table)
-상품요약서: 60% Mixed → HybridParser
-가입설계서: 90% Table → TableParser (구조화)
+약관:       100% Text → TextParser (text_parser.py)
+사업방법서: 50% Mixed → HybridParser (hybrid_parser_v2.py)
+상품요약서: 60% Mixed → HybridParser (hybrid_parser_v2.py)
+가입설계서: 90% Table → TableParser (table_parser.py)
 ```
+
+**Implementation Note:**
+- Parser files located in: `ingestion/parsers/`
+- `hybrid_parser_v2.py`: Handles mixed text+table documents (business_spec, product_summary)
+- Actual clause type distribution:
+  - `article`: 129,667 clauses (terms)
+  - `text_block`: 4,286 clauses (business_spec, product_summary)
+  - `table_row`: 891 clauses (proposal, product_summary)
 
 **2. ProductVariant Hierarchy**
 ```
@@ -171,6 +179,26 @@ Query: "삼성화재 암 진단금 3,000만원"
 3. Vector Search: similarity + filters
 4. LLM Answer: 근거 명시
 ```
+
+**4. Coverage Hierarchy (Phase 5 Enhancement)**
+```
+Parent Coverage → Child Coverage 관계 지원
+
+일반암 (parent)
+  ├─ 일반암진단비Ⅱ (child)
+  ├─ 일반암수술비 (child)
+  └─ 일반암주요치료비 (child)
+
+문제: "일반암진단비Ⅱ"로 검색 시 제28조 (일반암 일반 정의) 발견 불가
+해결: parent_coverage_id로 계층 구조 구축 → 부모 담보 조항도 검색
+
+구현: db/migrations/20251211_add_parent_coverage.sql
+```
+
+**Implementation Status:**
+- 6 parent coverages: 일반암, 뇌혈관질환, 뇌졸중, 뇌출혈, 허혈심장질환, 급성심근경색
+- 52 child coverages mapped
+- InfoExtractor updated to traverse hierarchy (api/info_extractor.py)
 
 ### 3.2 Entity-Relationship Diagram
 
@@ -264,17 +292,28 @@ CREATE INDEX idx_structured_data_gin
 }
 ```
 
+**structured_data Usage (실제 구현):**
+- Total clauses: 134,844
+- With structured_data: 891 (0.7%)
+- **주요 사용처**: proposal (가입설계서) documents → 100% (690/690)
+- **부분 사용**: product_summary → 10.2% (198/1,942)
+- **미사용**: terms (약관) → 0% (by design, text-only)
+
+**Note**: 0.7% overall usage is **intentional** - 96% of clauses are text-based terms that don't need structured data.
+
 **ClauseCoverage (NEW Mapping):**
 ```sql
 CREATE TABLE clause_coverage (
     id SERIAL PRIMARY KEY,
     clause_id INTEGER NOT NULL REFERENCES document_clause(id),
     coverage_id INTEGER NOT NULL REFERENCES coverage(id),
-    confidence FLOAT DEFAULT 1.0,          -- 0.0-1.0
+    relevance_score FLOAT DEFAULT 1.0,     -- 0.0-1.0 (실제 구현명)
     extraction_method VARCHAR(50),         -- 'exact_match', 'fuzzy_match', 'llm'
     UNIQUE (clause_id, coverage_id)
 );
 ```
+
+**Implementation Note**: Schema uses `relevance_score` instead of `confidence` (functionally equivalent).
 
 ### 3.4 Document Type별 Chunking
 
@@ -410,6 +449,7 @@ LIMIT 5;
 if structured_data['coverage_name'] == "암진단비(유사암 제외)":
     coverage_id = exact_match("암진단비(유사암 제외)")
     method = 'exact_match'
+    relevance_score = 1.0
 ```
 
 **Tier 2: Fuzzy Match (신뢰도: 0.8-0.95)**
@@ -418,13 +458,18 @@ from fuzzywuzzy import fuzz
 score = fuzz.partial_ratio("암진단비", clause_text)
 if score > 80:
     method = 'fuzzy_match'
+    relevance_score = score / 100.0
 ```
 
 **Tier 3: LLM Fallback (신뢰도: 0.6-0.9)**
 ```python
 coverage_ids = llm_extract(clause_text, coverage_list)
 method = 'llm'
+relevance_score = 0.8  # default for LLM
 ```
+
+**Implementation**: `ingestion/link_clauses.py`
+**Actual Results**: 4,903 clause→coverage mappings created
 
 ---
 
@@ -619,13 +664,17 @@ insurance-ontology-claude/
 │   └── schema_v2.sql            # v2 스키마
 │
 ├── ingestion/
-│   ├── ingest_documents_v2.py
+│   ├── ingest_v3.py             # Document ingestion (Phase 1)
 │   ├── parsers/
-│   │   ├── text_parser.py       # 약관
+│   │   ├── text_parser.py       # 약관 ✅
 │   │   ├── table_parser.py      # 가입설계서 ✅
-│   │   └── hybrid_parser.py     # 사업방법서, 상품요약서
-│   ├── coverage_mapper.py       # 3-tier ✅
-│   └── graph_loader.py
+│   │   ├── hybrid_parser_v2.py  # 사업방법서, 상품요약서 ✅
+│   │   └── carrier_parsers/     # 8 carrier-specific parsers
+│   ├── coverage_pipeline.py     # Coverage extraction (Phase 2.1)
+│   ├── extract_benefits.py      # Benefit extraction (Phase 2.4)
+│   ├── load_disease_codes.py    # Disease codes (Phase 2.2)
+│   ├── link_clauses.py          # 3-tier mapping (Phase 2.3) ✅
+│   └── graph_loader.py          # Neo4j sync (Phase 3) ✅
 │
 ├── vector_index/
 │   ├── build_index.py           # FastEmbed
@@ -901,21 +950,32 @@ python scripts/evaluate_qa.py \
 ```sql
 -- Documents & Clauses
 document:                     38 rows
-document_clause:              80,682 rows
+document_clause:              134,844 rows (실제 구현)
 clause_embedding:             80,682 rows (Phase 4)
+  ├─ article (약관):          129,667 clauses
+  ├─ text_block (혼합):       4,286 clauses
+  └─ table_row (구조화):      891 clauses (100% structured_data)
 
 -- Core Ontology
 company:                      8 rows
 product:                      8 rows
-coverage:                     384 rows (181 with standard_code)
+coverage:                     363 rows
+  ├─ with standard_code:      181 rows
+  ├─ parent coverages:        6 rows (Phase 5 추가)
+  └─ child coverages:         52 rows (parent_coverage_id 매핑)
 benefit:                      384 rows
 disease_code_set:             9 rows
 disease_code:                 131 rows
 
 -- Mappings
-clause_coverage:              674 rows (Phase 2)
+clause_coverage:              4,903 rows (Phase 2 실제)
 coverage_standard_mapping:    264 rows (Phase 5 v4)
 ```
+
+**Coverage Hierarchy** (2025-12-11 추가):
+- 6 parent coverages: 일반암, 뇌혈관질환, 뇌졸중, 뇌출혈, 허혈심장질환, 급성심근경색
+- 52 child coverages mapped via parent_coverage_id
+- InfoExtractor traverses hierarchy for general definition clauses (제28조 등)
 
 ### 11.2 그래프 데이터베이스 (Neo4j)
 
@@ -975,7 +1035,8 @@ Latency (P95):      8,690ms
 
 ---
 
-**Document Version:** v2.5
-**Last Updated:** 2025-12-11 12:00 KST
+**Document Version:** v2.6
+**Last Updated:** 2025-12-11 18:30 KST
 **Status:** ✅ Phase 0-5 완료 (86% accuracy)
 **Production Ready:** Yes
+**Design Verification:** ✅ 88.2% compliance (docs/DESIGN_VERIFICATION_REPORT.md)
