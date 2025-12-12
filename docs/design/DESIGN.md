@@ -363,33 +363,49 @@ structured_data = {
 ```
 38 PDFs (8 carriers)
       ↓
-Phase 1: Document Ingestion
-  → Parser routing (Text/Table/Hybrid)
-  → document_clause 생성 (~80,000건)
-  → clause_type + structured_data 포함
+Phase 1: Document Ingestion ✅ (완료)
+  → ingest_v3.py (Parser routing: Text/Table/Hybrid V2)
+  → document: 38건
+  → document_clause: 134,844건
+    ├─ article: 129,667 (96.2%) - TextParser
+    ├─ text_block: 4,286 (3.2%) - HybridParserV2
+    └─ table_row: 891 (0.7%) - TableParser
+  → structured_data: 891건 (table_row only)
       ↓
-Phase 2: Entity Extraction
-  → Coverage metadata 로드
-  → Clause → Coverage 매핑 (3-tier)
-  → clause_coverage 생성 (~8,000건)
+Phase 2: Entity Extraction ✅ (완료)
+  → coverage_pipeline.py (Coverage metadata 추출)
+  → extract_benefits.py (Benefit 추출)
+  → load_disease_codes.py (Disease codes 적재)
+  → link_clauses.py (3-tier mapping: exact/fuzzy)
+  → 산출물:
+    ├─ coverage: 363건
+    ├─ benefit: 357건
+    ├─ disease_code_set: 9 sets, 131 codes
+    └─ clause_coverage: 4,903건 (exact: 317, fuzzy: 163, manual: 4,423)
       ↓
-Phase 3: Graph Sync
-  → PostgreSQL → Neo4j
-  → Nodes: Company, Product, Coverage
-  → Relationships: HAS_PRODUCT, COVERS
+Phase 3: Graph Sync ✅ (완료)
+  → graph_loader.py (PostgreSQL → Neo4j)
+  → 산출물:
+    ├─ Nodes: 640개 (Company: 8, Product: 8, Coverage: 363, Benefit: 357, etc.)
+    └─ Relationships: 623개 (COVERS, OFFERS, HAS_COVERAGE, etc.)
       ↓
-Phase 4: Vector Index
-  → FastEmbed BGE-Small (384d)
-  → clause_embedding (~80,000건)
-  → Metadata: coverage_ids, clause_type, product_id
+Phase 4: Vector Index ✅ (완료)
+  → build_index.py (OpenAI text-embedding-3-small, 1536d)
+  → clause_embedding: 134,644건 (1.8GB)
+  → Backend: PostgreSQL pgvector
+  → Metadata: coverage_ids, clause_type, doc_type, product_id
       ↓
-Phase 5: Hybrid RAG
-  → NL Mapper (query → entities)
-  → Filtered Vector Search
-  → Context Assembly
-  → LLM Answer (근거 명시)
+Phase 5: Hybrid RAG ✅ (완료 - 86% accuracy)
+  → hybrid_retriever.py (5-tier fallback search)
+  → context_assembly.py (Coverage/benefit enrichment)
+  → prompts.py (System prompt v5)
+  → llm_client.py (GPT-4o-mini, temp=0.1)
+  → Features:
+    ├─ Korean amount parsing in SQL
+    ├─ Metadata filtering (doc_type, coverage_id, gender, age, amount)
+    └─ Citation with [번호] format
       ↓
-Phase 6: Business Features
+Phase 6: Business Features (계획)
   → 상품 비교
   → 설계서 검증
   → QA Bot
@@ -397,79 +413,141 @@ Phase 6: Business Features
 
 ### 4.2 Hybrid Query Pipeline
 
-**Example: "삼성화재 암 진단금 3,000만원"**
+**구현**: `retrieval/hybrid_retriever.py` (Phase 5 완료)
 
-**Step 1: NL Mapper**
+**Example Query**: "삼성화재 암 진단금 3,000만원"
+
+**Step 1: NL Mapper** (`ontology/nl_mapping.py`)
 ```python
-{
-  'company': '삼성화재',
-  'coverage_ids': [1, 2, 3],  # 암진단비, 암직접치료비, 암수술비
-  'amount_filter': {'min': 30000000}
+entities = {
+  'company': {'name': '삼성화재', 'company_id': 1},
+  'coverages': [{'name': '암진단비', 'coverage_id': 15}, ...],
+  'filters': {
+    'company_id': 1,
+    'amount': {'min': 30000000, 'raw': '3,000만원'}
+  }
 }
 ```
 
-**Step 2: Filtered Vector Search**
-```sql
-SELECT c.*, ce.embedding
-FROM document_clause c
-JOIN clause_embedding ce ON c.id = ce.clause_id
-JOIN clause_coverage cc ON c.id = cc.clause_id
-WHERE cc.coverage_id IN (1,2,3)
-  AND (c.structured_data->>'coverage_amount')::INTEGER >= 30000000
-ORDER BY ce.embedding <=> query_embedding
-LIMIT 5;
+**Step 2: Coverage Query Detection & Prioritization**
+```python
+# Coverage keywords: 진단금, 진단비, 수술비, 입원비, 치료비, 보장금, 보험금
+has_coverage_query = True  # → Prioritize proposal + table_row
+filters = {
+  'company_id': 1,
+  'doc_type': 'proposal',      # ⭐ 가입설계서 우선
+  'clause_type': 'table_row',  # ⭐ 테이블 행 우선
+  'amount': {'min': 30000000}
+}
 ```
 
-**Step 3: Context Assembly**
+**Step 3: 5-Tier Fallback Vector Search** (Zero-result 방지)
 ```python
+# Tier 0: proposal + table_row (기본)
+# Tier 1: proposal only (clause_type 제거)
+# Tier 2: business_spec + table_row
+# Tier 3: business_spec only
+# Tier 4: terms (약관)
+# Tier 5: All doc_types (최후의 수단)
+```
+
+**Step 4: SQL Vector Search** (Korean Amount Parsing)
+```sql
+SELECT
+    ce.clause_id, dc.clause_text,
+    (1 - (ce.embedding <=> %s::vector)) as similarity,
+    ce.metadata->>'doc_type' as doc_type,
+    ce.metadata->>'clause_type' as clause_type
+FROM clause_embedding ce
+JOIN document_clause dc ON ce.clause_id = dc.id
+JOIN document d ON dc.document_id = d.id
+WHERE d.company_id = 1
+  AND ce.metadata->>'doc_type' = 'proposal'
+  AND ce.metadata->>'clause_type' = 'table_row'
+  -- ⭐ Korean amount parsing (3,000만원 → 30000000)
+  AND parse_korean_amount(dc.structured_data->>'coverage_amount') >= 30000000
+ORDER BY ce.embedding <=> %s::vector
+LIMIT 10;
+```
+
+**Step 5: Context Assembly** (`retrieval/context_assembly.py`)
+```python
+# Coverage/Benefit enrichment from DB
 [
   {
-    'text': '암진단비(유사암 제외): 3,000만원, 월 40,620원',
+    'text': '💰 보장금액: **3,000만원** (월 보험료: 40,620원)\n암진단비(유사암 제외)',
     'metadata': {
       'doc_type': 'proposal',
-      'page': 5,
-      'structured_data': {...}
+      'coverage_id': 15,
+      'coverage_name': '암진단비(유사암 제외)',
+      'benefit_type': 'diagnosis',
+      'citation_number': 1
     }
   }
 ]
 ```
 
-**Step 4: LLM Answer**
+**Step 6: LLM Answer** (`retrieval/llm_client.py` - GPT-4o-mini)
 ```
-삼성화재 마이헬스 파트너에서 암진단비(유사암 제외) 3,000만원 보장이 있습니다.
-월 보험료는 40,620원입니다.
+삼성화재 마이헬스 파트너에서 **암진단비(유사암 제외) 3,000만원** 보장이 제공됩니다.
+월 보험료는 **40,620원**입니다.
 
-출처: 가입설계서 5페이지
+**출처**: [1] 가입설계서 5페이지
 ```
 
-### 4.3 Coverage Mapping (3-Tier)
+### 4.3 Coverage Mapping (Multi-Tier)
 
-**Tier 1: Exact Match (신뢰도: 1.0)**
+**구현**: `ingestion/link_clauses.py` (Phase 2.3 완료)
+
+**실제 매핑 결과** (Total: 4,903건):
+
+| Method | Count | % | Description |
+|--------|-------|---|-------------|
+| **parent_coverage_linking** | 3,889 | 79.3% | Coverage hierarchy 자동 매핑 (Phase 5) |
+| **exact_match** | 829 | 16.9% | table_row + structured_data 정확 매칭 |
+| **fuzzy_match** | 185 | 3.8% | String similarity 기반 매칭 |
+
+**Tier 1: Exact Match** (relevance_score: 1.0)
 ```python
-if structured_data['coverage_name'] == "암진단비(유사암 제외)":
-    coverage_id = exact_match("암진단비(유사암 제외)")
-    method = 'exact_match'
-    relevance_score = 1.0
+# table_row clauses with structured_data.coverage_name
+SELECT id FROM coverage
+WHERE product_id = %s
+  AND coverage_name = structured_data->>'coverage_name'
+
+# Example: "암진단비(유사암 제외)" → coverage_id: 15
+method = 'exact_match'
+relevance_score = 1.0
 ```
 
-**Tier 2: Fuzzy Match (신뢰도: 0.8-0.95)**
+**Tier 2: Fuzzy Match** (relevance_score: 0.80-0.95)
 ```python
 from fuzzywuzzy import fuzz
 score = fuzz.partial_ratio("암진단비", clause_text)
-if score > 80:
+if score >= 80:
     method = 'fuzzy_match'
-    relevance_score = score / 100.0
+    relevance_score = score / 100.0  # 0.80-0.95
 ```
 
-**Tier 3: LLM Fallback (신뢰도: 0.6-0.9)**
+**Tier 3: Parent Coverage Linking** (Phase 5 - Coverage Hierarchy)
 ```python
+# 자식 담보 → 부모 담보 매핑 (예: "일반암진단비Ⅱ" → "일반암")
+# 6 parent coverages: 일반암, 뇌혈관질환, 뇌졸중, 뇌출혈, 허혈심장질환, 급성심근경색
+# 52 child coverages automatically linked
+SELECT parent_coverage_id FROM coverage WHERE id = child_coverage_id
+
+# Example: clause mentions "일반암진단비Ⅱ" (child)
+#          → Also link to "일반암" general definition clause (parent)
+method = 'parent_coverage_linking'
+relevance_score = 0.9
+```
+
+**Tier 4: LLM Fallback** (선택적, 현재 미사용)
+```python
+# Ollama/OpenAI LLM for ambiguous cases
 coverage_ids = llm_extract(clause_text, coverage_list)
 method = 'llm'
-relevance_score = 0.8  # default for LLM
+relevance_score = 0.8
 ```
-
-**Implementation**: `ingestion/link_clauses.py`
-**Actual Results**: 4,903 clause→coverage mappings created
 
 ---
 

@@ -4,119 +4,172 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Insurance ontology + Hybrid-RAG system for Korean insurance documents. Parses insurance terms, business specifications, and proposal documents into structured ontology + relational DB (PostgreSQL) + graph DB (Neo4j) + vector index, enabling natural language queries, product comparison, and plan validation.
+Insurance ontology + Hybrid-RAG system for Korean insurance documents. Parses insurance terms, business specifications, and proposal documents into structured ontology + relational DB (PostgreSQL) + graph DB (Neo4j) + vector index (pgvector), enabling natural language queries, product comparison, and plan validation.
+
+**Status**: Phase 0-5 완료 ✅ (86% QA accuracy)
 
 ## Common Commands
 
 ```bash
-# Start services (Postgres, Neo4j, Qdrant)
+# Start services (PostgreSQL, Neo4j)
 ./scripts/start_hybrid_services.sh
 
 # Initialize databases
-docker run --rm --network insurance-ontology_default \
-  -v $PWD:/app -w /app \
-  -e POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/insurance_ontology \
-  python:3.12 bash -c "pip install -r requirements.txt && ./scripts/init_db.sh"
+./scripts/init_db.sh
+./scripts/init_neo4j.sh
 
-# Load sample documents
-./scripts/load_sample.sh
+# Phase 1: Document Ingestion (완료 ✅)
+python -m ingestion.ingest_v3
 
-# Phase 2: Entity Extraction
+# Phase 2: Entity Extraction (완료 ✅)
 python -m ingestion.coverage_pipeline --carrier all    # Extract coverages
 python -m ingestion.extract_benefits                   # Extract benefits
 python -m ingestion.load_disease_codes                 # Load disease codes
 python -m ingestion.link_clauses --method all          # Link clauses to coverages
 
-# Phase 3: Graph Sync
+# Phase 3: Graph Sync (완료 ✅)
 python -m ingestion.graph_loader --all                 # Sync to Neo4j
 
-# Phase 4: Build vector index (requires OPENAI_API_KEY)
+# Phase 4: Build vector index (완료 ✅, requires OPENAI_API_KEY)
 python -m vector_index.build_index
+
+# Phase 5: Test Hybrid RAG (완료 ✅)
+python scripts/evaluate_qa.py --qa-set data/gold_qa_set_50.json
 
 # Run tests
 pytest tests/                    # all tests
 pytest tests/test_pipeline.py   # single file
-pytest tests/test_pipeline.py::test_function_name  # single test
 
 # CLI commands
-python -m api.cli docs --limit 5
-python -m api.cli search "암진단시 보장" --limit 3
-python -m api.cli hybrid "마이헬스 1종 소액암 보장?"
-python -m api.cli plan-report --company 삼성화재 --product "..." --format text
+python -m api.cli search "암진단시 보장" --limit 5
+python -m api.cli hybrid "삼성화재 암 진단금 3000만원"
 ```
 
 ## Architecture
 
 ### Data Flow
 ```
-PDF Documents → ingestion/pipeline.py (extract clauses)
-             → db_loader.py (Postgres: document, document_clause)
-             → graph_loader.py (Neo4j nodes/relationships)
-             → vector_index/build_index.py (embeddings → pgvector/Qdrant)
+38 PDF Documents (8 carriers)
+      ↓
+Phase 1: ingestion/ingest_v3.py
+  → Parser routing (Text/Table/Hybrid V2)
+  → PostgreSQL: document (38), document_clause (134,844)
+      ↓
+Phase 2: Entity Extraction
+  → coverage_pipeline.py: coverage (363)
+  → extract_benefits.py: benefit (357)
+  → load_disease_codes.py: disease_code_set (9), disease_code (131)
+  → link_clauses.py: clause_coverage (4,903)
+      ↓
+Phase 3: ingestion/graph_loader.py
+  → Neo4j: 640 nodes, 623 relationships
+      ↓
+Phase 4: vector_index/build_index.py
+  → PostgreSQL pgvector: clause_embedding (134,644, 1.8GB)
+  → Model: OpenAI text-embedding-3-small (1536d)
+      ↓
+Phase 5: retrieval/hybrid_retriever.py
+  → 5-tier fallback search + LLM (GPT-4o-mini)
 ```
 
 ### Core Modules
 
 - **ingestion/**: PDF parsing and data extraction
-  - `ingest_documents_v2.py`: Extract page-level clauses, infer document type/company/product
-    - **Table Extraction**: Uses `tabula.read_pdf(pdf_path, pages='all')` for ALL carriers (동일)
-    - **Table Parsing**: Uses carrier-specific parsers (보험사별)
-  - `parsers/`: Table parsing modules
-    - `parser_factory.py`: Routes to carrier-specific parser based on company_code
-    - `carrier_parsers/`: 8 carrier-specific parsers (Samsung, DB, Lotte, Meritz, KB, Hanwha, Hyundai, Heungkuk)
-  - `coverage_pipeline.py`: Parse coverage metadata from proposal documents (Phase 2.1)
-  - `extract_benefits.py`: Extract benefit information from table_row clauses (Phase 2.4)
-  - `load_disease_codes.py`: Load disease code sets and codes (Phase 2.2)
-  - `link_clauses.py`: Map clauses to coverage IDs using 3-tier matching (Phase 2.3)
-  - `graph_loader.py`: Sync PostgreSQL entities to Neo4j graph (Phase 3)
+  - `ingest_v3.py`: Main ingestion pipeline
+    - Parser routing: Text (약관) / Table (가입설계서) / Hybrid V2 (사업방법서, 상품요약서)
+    - Output: document_clause (134,844 clauses)
+  - `parsers/`: Parsing modules
+    - `text_parser.py`: Article-based parsing for terms
+    - `table_parser.py`: Carrier-specific table parsing for proposals
+    - `hybrid_parser_v2.py`: Mixed text+table parsing
+    - `parser_factory.py`: Routes to carrier-specific parser
+  - `coverage_pipeline.py`: Extract coverage metadata (Phase 2.1)
+  - `extract_benefits.py`: Extract benefits from table_row clauses (Phase 2.4)
+  - `load_disease_codes.py`: Load disease code sets (Phase 2.2)
+  - `link_clauses.py`: Multi-tier clause→coverage mapping (Phase 2.3)
+  - `graph_loader.py`: PostgreSQL → Neo4j sync (Phase 3)
 
-- **api/cli.py**: Main query interface with hybrid search (ontology mapping + vector retrieval + LLM)
+- **vector_index/**: Embedding generation
+  - `build_index.py`: Generate embeddings using OpenAI API
+  - `openai_embedder.py`: OpenAI text-embedding-3-small wrapper
+  - `retriever.py`: Vector search utilities
 
-- **ontology/nl_mapping.py**: Map natural language queries to ontology entities (Coverage, DiseaseCodeSet, Product)
+- **retrieval/**: Hybrid RAG system (Phase 5)
+  - `hybrid_retriever.py`: 5-tier fallback vector search
+  - `context_assembly.py`: Coverage/benefit enrichment
+  - `prompts.py`: System prompt v5
+  - `llm_client.py`: GPT-4o-mini wrapper
 
-### Database Schema (db/postgres/schema.sql)
+- **ontology/nl_mapping.py**: Natural language → entity mapping
 
-Key tables: `company`, `product`, `product_variant`, `coverage`, `benefit`, `condition`, `exclusion`, `disease_code_set`, `disease_code`, `refund_policy`, `coverage_schedule`, `plan`, `plan_coverage`, `document`, `document_clause`, `clause_embedding`
+- **api/cli.py**: Command-line interface
 
-### Hybrid Query Pipeline
+### Database Schema
 
-1. NL mapper extracts entity mentions from query
-2. Fetch matching coverage IDs from Postgres/Neo4j
-3. Vector search clauses filtered by coverage_id
-4. LLM generates answer with structured facts + clause references
+**PostgreSQL** (primary storage):
+- **Insurance Domain**: `company`, `product`, `product_variant`, `coverage`, `benefit`, `condition`, `exclusion`
+- **Document Domain**: `document`, `document_clause`, `clause_embedding`
+- **Mapping**: `clause_coverage`, `coverage_group`, `coverage_category`
+- **Disease Codes**: `disease_code_set`, `disease_code`
 
-### Full Ingestion Pipeline Order
+**Neo4j** (graph queries):
+- Nodes: Company, Product, Coverage, Benefit, DiseaseCodeSet, DiseaseCode
+- Relationships: COVERS, OFFERS, HAS_COVERAGE, CONTAINS, APPLIES_TO
 
-**Current Implementation (Phases 0-3 Complete):**
-```
-Phase 0: Design & Analysis ✅
-Phase 1: Document Ingestion ✅
-  → ingest_documents_v2.py (38 docs → 80,521 clauses)
+### Current Data Scale (as of Phase 5)
 
-Phase 2: Entity Extraction ✅
-  → coverage_pipeline.py (240 coverages)
-  → extract_benefits.py (240 benefits)
-  → load_disease_codes.py (9 sets, 131 codes)
-  → link_clauses.py --method all (480 mappings: exact + fuzzy)
+| Entity | Count | Notes |
+|--------|-------|-------|
+| Documents | 38 | 8 carriers |
+| Document Clauses | 134,844 | article: 129,667, text_block: 4,286, table_row: 891 |
+| Coverages | 363 | 6 parent coverages, 52 child coverages |
+| Benefits | 357 | diagnosis, surgery, treatment, death, other |
+| Clause-Coverage Mappings | 4,903 | exact: 829, fuzzy: 185, parent_linking: 3,889 |
+| Embeddings | 134,644 | 1.8GB, 1536d |
+| Neo4j Nodes | 640 | Synced from PostgreSQL |
+| Neo4j Relationships | 623 | Synced from PostgreSQL |
 
-Phase 3: Graph Sync ✅
-  → graph_loader.py --all (640 nodes, 623 relationships)
+### Hybrid Query Pipeline (Phase 5)
 
-Phase 4: Vector Index (Next)
-  → vector_index.build_index (embeddings for 80,521 clauses)
-```
+**Example**: "삼성화재 암 진단금 3,000만원"
+
+1. **NL Mapper** (`ontology/nl_mapping.py`)
+   - Extract entities: company, coverage, amount
+
+2. **Coverage Query Detection**
+   - Detect coverage keywords → Prioritize proposal + table_row
+
+3. **5-Tier Fallback Vector Search** (`retrieval/hybrid_retriever.py`)
+   - Tier 0: proposal + table_row (기본)
+   - Tier 1: proposal only
+   - Tier 2: business_spec + table_row
+   - Tier 3: business_spec only
+   - Tier 4: terms
+   - Tier 5: all doc_types
+
+4. **SQL Vector Search**
+   - Korean amount parsing: "3,000만원" → 30000000
+   - Metadata filtering: company_id, doc_type, clause_type, amount
+
+5. **Context Assembly** (`retrieval/context_assembly.py`)
+   - Enrich with coverage/benefit metadata
+   - Format citations: [1], [2], ...
+
+6. **LLM Answer** (`retrieval/llm_client.py`)
+   - Model: GPT-4o-mini (temp=0.1)
+   - Returns structured answer with citations
 
 ### Key Entity Relationships
 
 ```
 Company → Product → ProductVariant → Coverage → Benefit
                                    ↓           ↓
-                              Condition    RiskEvent
-                              Exclusion    DiseaseCodeSet
-                              RefundPolicy ProcedureCodeSet
+                              Condition    DiseaseCodeSet
+                              Exclusion
 
-Plan → PlanCoverage (with schedule/condition_facts/refund_facts JSON)
-Document → DocumentClause → ClauseEmbedding (with coverage_id in metadata)
+Document → DocumentClause → ClauseEmbedding
+         ↓                ↓
+    ProductVariant   ClauseCoverage → Coverage
 ```
 
 ### Document Structure Variations by Carrier
@@ -129,46 +182,18 @@ Document → DocumentClause → ClauseEmbedding (with coverage_id in metadata)
 
 **Carrier-Specific Variations**:
 
-| Carrier | Document Structure | Total Docs | Notes |
-|---------|-------------------|------------|-------|
-| **Samsung Fire** | • Business Spec → "사업설명서"<br>• Product Summary + **Easy Summary** (쉬운요약서) | 5 | Extra consumer-friendly summary |
-| **DB Insurance** | • Proposal split by age:<br>  - Age ≤40<br>  - Age ≥41 | 5 | Age-based proposal templates |
-| **Lotte Insurance** | • **All documents split by gender**:<br>  - Terms: Male / Female<br>  - Business Spec: Male / Female<br>  - Product Summary: Male / Female<br>  - Proposal: Male / Female | **8** | Complete gender-based separation |
+| Carrier | Variation | Total Docs |
+|---------|-----------|------------|
+| **Samsung Fire** | + Easy Summary (쉬운요약서) | 5 |
+| **DB Insurance** | Proposal split by age (≤40 / ≥41) | 5 |
+| **Lotte Insurance** | All documents split by gender (Male / Female) | 8 |
+| **Meritz** | Business Spec → "사업설명서" | 4 |
+| **Others** | Standard 4-doc set | 4 each |
 
-**Implementation Strategy**:
-- Keep standard `doc_type`: `terms`, `business_spec`, `product_summary`, `proposal`
-- Handle variations via metadata:
-  - `doc_subtype`: `easy_summary`, `age_40_under`, `age_41_over`, `male`, `female`
-  - `document.attributes` (JSONB): `{target_age_range: "≤40", target_gender: "male"}`
-
-**When adding documents**:
-```bash
-# Example: Samsung Easy Summary
-python -m scripts.convert_documents \
-  --company-code samsung \
-  --metadata-override '{"doc_subtype": "easy_summary"}'
-
-# Example: DB Age-specific Proposal
-python -m scripts.convert_documents \
-  --document-id db-realsok-proposal-v1-20250901-age40under \
-  --metadata-override '{"doc_subtype": "age_40_under", "attributes": {"target_age_range": "≤40"}}'
-```
-
-### Carrier Onboarding Checklist
-
-To add a new insurance carrier (e.g., KB, 메리츠):
-1. **Document Collection**:
-   - Identify carrier's document structure (4-doc standard or variations)
-   - Add PDFs + metadata JSON to `examples/<carrier>/`
-   - Note any naming differences (e.g., "사업설명서" vs "사업방법서")
-   - Document age/gender/variant splits in metadata
-2. Run `load_sample.sh` with `INGESTION_DOC_FILTER=<carrier>`
-3. Run `load_coverage.sh <carrier>` + prepare disease/benefit CSVs
-4. Execute `refresh_section_types`, `link_clauses`, `condition_loader`, `refund_loader`
-5. Run `plan_validator --persist` on sample proposals
-6. Rebuild embeddings: `python -m vector_index.build_index`
-7. Sync Neo4j: `python -m ingestion.graph_loader --sync-coverage --sync-benefits`
-8. Run Hybrid smoke tests to verify
+**Metadata Handling**:
+- `doc_type`: `terms`, `business_spec`, `product_summary`, `proposal`
+- `doc_subtype`: `easy_summary`, `age_40_under`, `age_41_over`, `male`, `female`
+- `document.attributes` (JSONB): `{target_age_range: "≤40", target_gender: "male"}`
 
 ## Code Style
 
@@ -182,26 +207,34 @@ To add a new insurance carrier (e.g., KB, 메리츠):
 Key vars in `.env`:
 - `POSTGRES_URL`: PostgreSQL connection string
 - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`: Neo4j connection
-- `OPENAI_API_KEY`: For embeddings and LLM responses
-- `VECTOR_BACKEND`: `pgvector` or `qdrant`
-- `INGESTION_DOC_FILTER`, `INGESTION_MAX_DOCS`, `INGESTION_MAX_PAGES`: Control document ingestion scope
+- `OPENAI_API_KEY`: For embeddings (text-embedding-3-small) and LLM (GPT-4o-mini)
+- `EMBEDDING_BACKEND`: `openai` (default, recommended)
+- `INGESTION_DOC_FILTER`, `INGESTION_MAX_DOCS`, `INGESTION_MAX_PAGES`: Control document ingestion scope (optional)
 
 ## Design Documentation
 
-**IMPORTANT**: Always refer to `ONTOLOGY_DESIGN.md` for:
-- Document roles and structure (약관, 사업방법서, 상품요약서, 가입설계서)
-- Core ontology entities and relationships
-- Design philosophy and extensibility principles
-- Data integration strategy across Postgres/Neo4j/Vector
-- **Phase 0-7 Roadmap**: Requirements, ingestion pipeline, IE implementation, hybrid retrieval, and business features
-  - Phase 4: Information Extraction (IE) pipeline details
-  - Phase 5: Hybrid Retrieval orchestrator design
-  - Phase 6: Insurance agent/recruiter features (상품 비교, QA bot, 설계 검증, 민원 알림)
+**Primary Reference**: `docs/design/DESIGN.md`
+
+Key sections:
+- **Section 3**: Data Model v2 (E-R diagram, schema)
+- **Section 4**: Pipeline Architecture (6-phase implementation)
+- **Section 10**: Phase 3-5 implementation details
+- **Section 11**: System summary (data scale, performance)
 
 This design document is the single source of truth for ontology architecture and implementation roadmap.
 
 ## Important Notes
 
-- Run DB operations via Docker containers on `insurance-ontology_default` network (host ports may be blocked)
-- Schema changes require: migration + `scripts/init_db.sh` + data reload + index rebuild + test update
-- `/examples/` contains only public/anonymized documents - never commit PII or customer data
+- **Production Ready**: Phase 0-5 완료, 86% QA accuracy (43/50 queries)
+- **Vector Backend**: OpenAI text-embedding-3-small (1536d) via pgvector
+- **LLM**: GPT-4o-mini (temperature=0.1)
+- **Zero-Result Prevention**: 5-tier fallback search ensures 0% zero-result rate
+- **Coverage Hierarchy**: Parent-child coverage linking for better clause retrieval
+- **Korean Amount Parsing**: SQL-based parsing for "3,000만원" → 30000000
+
+## Next Steps (Phase 6)
+
+- [ ] Production API deployment
+- [ ] Frontend integration (React InfoQueryBuilder)
+- [ ] Performance optimization (90%+ accuracy target)
+- [ ] Business features: 상품 비교, 설계서 검증, QA Bot
