@@ -10,6 +10,7 @@ function App() {
   const [showInfoQueryBuilder, setShowInfoQueryBuilder] = useState(false);
   const [infoQueryTemplate, setInfoQueryTemplate] = useState<QueryTemplate | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [resetTrigger, setResetTrigger] = useState(0);
 
   const handleSelectTemplate = (template: QueryTemplate) => {
     // Check if it's a "상품/담보 설명" category template
@@ -22,6 +23,13 @@ function App() {
   };
 
   const handleCategoryChange = (category: string | null) => {
+    // 카테고리 변경 시 이전 상태 초기화
+    if (category !== selectedCategory) {
+      setSelectedTemplate(null);
+      setShowInfoQueryBuilder(false);
+      setInfoQueryTemplate(null);
+      setResetTrigger(prev => prev + 1);
+    }
     setSelectedCategory(category);
   };
 
@@ -30,7 +38,7 @@ function App() {
     setShowInfoQueryBuilder(false);
     setInfoQueryTemplate(null);
     setSelectedCategory(null);
-    // ChatInterface will handle clearing messages
+    setResetTrigger(prev => prev + 1);
   };
 
   const handleTemplateClear = () => {
@@ -56,6 +64,7 @@ function App() {
         infoQueryTemplate={infoQueryTemplate}
         onCloseInfoQueryBuilder={handleCloseInfoQueryBuilder}
         selectedCategory={selectedCategory}
+        resetTrigger={resetTrigger}
       />
     </div>
   );

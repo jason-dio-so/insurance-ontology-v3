@@ -12,6 +12,7 @@ interface ChatInterfaceProps {
   infoQueryTemplate?: QueryTemplate | null;
   onCloseInfoQueryBuilder?: () => void;
   selectedCategory?: string | null;
+  resetTrigger?: number;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -21,6 +22,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   infoQueryTemplate = null,
   onCloseInfoQueryBuilder,
   selectedCategory = null,
+  resetTrigger = 0,
 }) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [input, setInput] = useState('');
@@ -32,6 +34,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Auto-fill input and save template when selected
   const [currentTemplate, setCurrentTemplate] = useState<QueryTemplate | null>(null);
+
+  // resetTrigger가 변경되면 모든 상태 초기화
+  useEffect(() => {
+    if (resetTrigger > 0) {
+      setMessages([]);
+      setInput('');
+      setLastCoverage(null);
+      setCurrentTemplate(null);
+      setShowReturnButton(false);
+    }
+  }, [resetTrigger]);
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -200,25 +213,47 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-2xl px-4">
-              <div className="text-4xl mb-4">💬</div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                보험 온톨로지 AI에 오신 것을 환영합니다
-              </h2>
-              <p className="text-gray-400 mb-6">
-                왼쪽에서 질문 템플릿을 선택하거나, 아래에 자유롭게 질문해주세요.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
-                {categoryMetadata.map((category) => (
-                  <div key={category.name} className="bg-gray-800 p-4 rounded-lg">
-                    <div className={`${category.colorClass} font-medium mb-2`}>
-                      {category.icon} {category.name}
-                    </div>
-                    <div className="text-sm text-gray-400">
-                      {category.description}
-                    </div>
+              {/* 상품 비교 + 담보 선택 완료 상태 */}
+              {selectedCategory === '상품 비교' && currentTemplate ? (
+                <>
+                  <div className="text-4xl mb-4">📊</div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    {currentTemplate.title}
+                  </h2>
+                  <p className="text-gray-400 mb-4">
+                    {currentTemplate.description}
+                  </p>
+                  <div className="bg-gray-800 p-4 rounded-lg text-left mb-4">
+                    <div className="text-sm text-gray-400 mb-2">입력 예시:</div>
+                    <div className="text-white">{currentTemplate.example}</div>
                   </div>
-                ))}
-              </div>
+                  <p className="text-gray-500 text-sm">
+                    아래 입력창에서 질문을 수정하거나 바로 전송해주세요.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-4xl mb-4">💬</div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    보험 온톨로지 AI에 오신 것을 환영합니다
+                  </h2>
+                  <p className="text-gray-400 mb-6">
+                    왼쪽에서 카테고리와 질문 템플릿을 선택해주세요.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
+                    {categoryMetadata.map((category) => (
+                      <div key={category.name} className="bg-gray-800 p-4 rounded-lg">
+                        <div className={`${category.colorClass} font-medium mb-2`}>
+                          {category.icon} {category.name}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {category.description}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -275,21 +310,36 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
-                messages.length === 0
+                !selectedCategory
                   ? "왼쪽에서 카테고리를 선택해주세요"
                   : showReturnButton
-                  ? "위의 '대화 초기화' 버튼을 눌러주세요"
+                  ? "사이드바의 '처음으로' 버튼을 눌러주세요"
                   : selectedCategory === '상품/담보 설명'
                   ? "왼쪽에서 조회할 정보를 선택해주세요"
+                  : selectedCategory === '상품 비교' && !currentTemplate
+                  ? "왼쪽에서 비교할 담보를 선택해주세요"
                   : "질문을 입력하세요... (Shift+Enter로 줄바꿈)"
               }
               className="w-full bg-gray-700 text-white rounded-lg px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={3}
-              disabled={messages.length === 0 || isLoading || showReturnButton || selectedCategory === '상품/담보 설명'}
+              disabled={
+                isLoading ||
+                showReturnButton ||
+                selectedCategory === '상품/담보 설명' ||
+                (selectedCategory === '상품 비교' && !currentTemplate) ||
+                !selectedCategory
+              }
             />
             <button
               type="submit"
-              disabled={messages.length === 0 || !input.trim() || isLoading || showReturnButton || selectedCategory === '상품/담보 설명'}
+              disabled={
+                !input.trim() ||
+                isLoading ||
+                showReturnButton ||
+                selectedCategory === '상품/담보 설명' ||
+                (selectedCategory === '상품 비교' && !currentTemplate) ||
+                !selectedCategory
+              }
               className="absolute right-2 bottom-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg p-2 transition-colors duration-200"
             >
               <svg

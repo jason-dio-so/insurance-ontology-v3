@@ -232,6 +232,34 @@ This design document is the single source of truth for ontology architecture and
 - **Coverage Hierarchy**: Parent-child coverage linking for better clause retrieval
 - **Korean Amount Parsing**: SQL-based parsing for "3,000만원" → 30000000
 
+## Frontend Development Guidelines
+
+**중요**: 프론트엔드 개발 시 반드시 `frontend/frontend_spec.md` 문서를 현행화해야 합니다.
+
+### frontend_spec.md 유지 규칙
+
+1. **API 변경 시**: 새로운 API 엔드포인트 추가/수정 시 문서 업데이트
+2. **컴포넌트 변경 시**: 프론트엔드 사용 패턴 변경 시 문서 업데이트
+3. **데이터 흐름 변경 시**: Request/Response 구조 변경 시 문서 업데이트
+
+### 문서 구조
+
+- API 엔드포인트 목록
+- Request/Response 인터페이스
+- 처리 로직 분기 다이어그램
+- Frontend 사용 패턴 (상품 비교, 정보 조회)
+- 데이터 흐름 다이어그램
+
+### 관련 파일
+
+| 파일 | 설명 |
+|------|------|
+| `frontend/frontend_spec.md` | API 명세서 (필수 현행화) |
+| `frontend/src/services/api.ts` | API 호출 함수 |
+| `api/server.py` | 백엔드 API 서버 |
+| `api/compare.py` | 상품 비교 로직 |
+| `api/info_extractor.py` | 정보 추출 로직 |
+
 ## Next Steps (Phase 6)
 
 - [ ] Production API deployment

@@ -31,6 +31,49 @@ import os
 class NLMapper:
     """자연어 → 온톨로지 엔티티 매핑 클래스"""
 
+    # 회사명 별칭 매핑 (alias → DB company_name)
+    COMPANY_ALIASES = {
+        # 삼성
+        '삼성화재': '삼성',
+        '삼성생명': '삼성',
+        '삼성손보': '삼성',
+        '삼성손해보험': '삼성',
+        # DB (구 동부)
+        '동부': 'DB',
+        '동부화재': 'DB',
+        '동부손보': 'DB',
+        '동부손해보험': 'DB',
+        'DB손보': 'DB',
+        'DB손해보험': 'DB',
+        'DB화재': 'DB',
+        # 현대
+        '현대해상': '현대',
+        '현대생명': '현대',
+        '현대손보': '현대',
+        '현대손해보험': '현대',
+        # 한화
+        '한화손보': '한화',
+        '한화손해보험': '한화',
+        '한화생명': '한화',
+        '한화화재': '한화',
+        # 롯데
+        '롯데손보': '롯데',
+        '롯데손해보험': '롯데',
+        '롯데화재': '롯데',
+        # KB
+        'KB손보': 'KB',
+        'KB손해보험': 'KB',
+        'KB생명': 'KB',
+        # 메리츠
+        '메리츠화재': '메리츠',
+        '메리츠손보': '메리츠',
+        '메리츠손해보험': '메리츠',
+        # 흥국
+        '흥국화재': '흥국',
+        '흥국생명': '흥국',
+        '흥국손보': '흥국',
+    }
+
     def __init__(self, postgres_url: str = None):
         """
         Args:
@@ -127,34 +170,58 @@ class NLMapper:
         return entities
 
     def _extract_companies(self, query: str) -> List[str]:
-        """회사명 추출 (부분 매칭 지원)"""
+        """회사명 추출 (별칭 매핑 + 부분 매칭 지원)"""
         if not self._company_cache:
             self._load_company_cache()
 
         found = []
-        for company in self._company_cache:
-            company_name = company['company_name']  # Fixed: was 'name', should be 'company_name'
-            company_code = company['company_code']  # Fixed: was 'code', should be 'company_code'
+        found_set = set()  # 중복 방지
 
-            # 1. 전체 이름 정확 매칭
+        # 1. 별칭 매핑 우선 처리 (긴 별칭부터 매칭하여 정확도 향상)
+        sorted_aliases = sorted(self.COMPANY_ALIASES.keys(), key=len, reverse=True)
+        for alias in sorted_aliases:
+            if alias in query:
+                company_name = self.COMPANY_ALIASES[alias]
+                if company_name not in found_set:
+                    found.append(company_name)
+                    found_set.add(company_name)
+
+        # 2. DB의 회사명/코드 직접 매칭
+        for company in self._company_cache:
+            company_name = company['company_name']
+            company_code = company['company_code']
+
+            if company_name in found_set:
+                continue
+
+            # 전체 이름 정확 매칭
             if company_name in query:
                 found.append(company_name)
+                found_set.add(company_name)
                 continue
 
-            # 2. 코드 매칭
-            if company_code and company_code in query:
+            # 코드 매칭 (대소문자 무시)
+            if company_code and company_code.lower() in query.lower():
                 found.append(company_name)
+                found_set.add(company_name)
                 continue
 
-            # 3. 부분 매칭 (예: "삼성" → "삼성화재")
-            # 회사명의 핵심 키워드 추출 (첫 2-3글자)
-            core_keywords = [
-                '삼성', 'DB', '롯데', '메리츠', '한화', '현대', 'KB', '흥국'
-            ]
-            for keyword in core_keywords:
-                if keyword in company_name and keyword in query:
-                    found.append(company_name)
-                    break
+        # 3. 핵심 키워드 부분 매칭 (예: "삼성" → "삼성")
+        core_keywords = {
+            '삼성': '삼성',
+            '동부': 'DB',  # 동부 → DB
+            'DB': 'DB',
+            '롯데': '롯데',
+            '메리츠': '메리츠',
+            '한화': '한화',
+            '현대': '현대',
+            'KB': 'KB',
+            '흥국': '흥국',
+        }
+        for keyword, company_name in core_keywords.items():
+            if keyword in query and company_name not in found_set:
+                found.append(company_name)
+                found_set.add(company_name)
 
         return found
 

@@ -498,12 +498,20 @@ class ProductComparer:
             if "수술" in coverage:
                 keywords.append("수술")
 
+            # 특수 키워드: 다빈치 로봇 수술
+            if "다빈치" in coverage or "로봇" in coverage:
+                keywords.append("다빈치")
+
+            # 뇌출혈
+            if "뇌출혈" in coverage:
+                keywords.append("뇌출혈")
+
         print(f"[DEBUG] Keywords: {keywords}")
 
-        # 키워드가 없으면 데이터 없음 반환
+        # 키워드가 없으면 coverage 전체를 키워드로 사용 (Fallback)
         if not keywords:
-            print(f"[DEBUG] No keywords extracted from coverage: {coverage}")
-            return {"status": "no_data"}
+            print(f"[DEBUG] No specific keywords extracted, using coverage as keyword: {coverage}")
+            keywords = [coverage]
 
         # DB에서 coverage/benefit 데이터 직접 조회
         # 모든 키워드가 포함된 담보 찾기
@@ -524,6 +532,9 @@ class ProductComparer:
                 exclude_condition = " AND (cov.coverage_name NOT LIKE '%%유사암%%' OR cov.coverage_name LIKE '%%유사암제외%%' OR cov.coverage_name LIKE '%%유사암 제외%%')"
 
             # ORDER BY: 보장금액 높은 순 (단, "(유사암제외)" 패턴은 긍정적 의미이므로 우선순위 유지)
+            # 최소 금액 필터: 10만원 미만은 파싱 오류로 간주 (수술비/진단비 등은 최소 수백만원)
+            min_amount_filter = " AND (b.benefit_amount >= 100000 OR b.benefit_amount IS NULL)"
+
             query = f"""
                 SELECT
                     comp.company_name,
@@ -537,6 +548,7 @@ class ProductComparer:
                 WHERE comp.company_name = %s
                   AND ({like_conditions})
                   {exclude_condition}
+                  {min_amount_filter}
                 ORDER BY
                     b.benefit_amount DESC NULLS LAST
                 LIMIT 1
