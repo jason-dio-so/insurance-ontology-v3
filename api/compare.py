@@ -400,8 +400,16 @@ class ProductComparer:
         """
         import re
 
+        # 담보명에서 핵심 키워드 추출 (접미사 제거)
+        base_coverage = coverage_name
+        for suffix in ['담보', '특약', '보장']:
+            if base_coverage.endswith(suffix) and len(base_coverage) > len(suffix):
+                base_coverage = base_coverage[:-len(suffix)]
+                break
+
+
         with self.pg_conn.cursor() as cur:
-            # 해당 담보가 언급된 약관 조회
+            # 해당 담보가 언급된 약관 조회 (base_coverage로 검색)
             cur.execute("""
                 SELECT dc.clause_text
                 FROM document_clause dc
@@ -416,7 +424,7 @@ class ProductComparer:
                   )
                   AND dc.clause_text LIKE '%%가입%%나이%%'
                 LIMIT 5
-            """, (company, product_name, f'%{coverage_name}%', f'%{coverage_name}%'))
+            """, (company, product_name, f'%{base_coverage}%', f'%{base_coverage}%'))
 
             rows = cur.fetchall()
             if not rows:
@@ -425,17 +433,35 @@ class ProductComparer:
             # 정규식으로 나이 범위 추출: "15세~60세", "만15세~60세" 등
             age_pattern = re.compile(r'만?(\d+)세\s*~\s*(\d+)세')
 
+            # 담보명에서 핵심 키워드 추출 (특수문자 및 접미사 제거)
+            # base_coverage (접미사 제거된 버전)도 포함
+            coverage_keywords = re.split(r'[·∙\-\(\)（）]', coverage_name)
+            coverage_keywords = [kw.strip() for kw in coverage_keywords if len(kw.strip()) >= 2]
+            coverage_keywords.append(base_coverage)  # 접미사 제거된 버전 추가
+            coverage_keywords = list(set(coverage_keywords))
+
             for (clause_text,) in rows:
                 # 담보명이 포함된 줄 근처에서 나이 찾기
                 lines = clause_text.split('\n')
                 for i, line in enumerate(lines):
-                    if coverage_name in line or '가입나이' in line:
+                    # 핵심 키워드 중 하나라도 매칭되면 해당 줄로 간주
+                    keyword_match = any(kw in line for kw in coverage_keywords)
+                    if keyword_match or '가입나이' in line:
                         # 현재 줄과 주변 3줄 검색
                         context = '\n'.join(lines[max(0, i-1):min(len(lines), i+3)])
                         match = age_pattern.search(context)
                         if match:
                             min_age, max_age = match.groups()
                             return f"{min_age}세~{max_age}세"
+
+            # Fallback: clause 전체에서 가장 일반적인 나이 범위 찾기
+            for (clause_text,) in rows:
+                matches = age_pattern.findall(clause_text)
+                if matches:
+                    # 가장 자주 나오는 나이 범위 사용 (보통 테이블 헤더 근처)
+                    from collections import Counter
+                    most_common = Counter(matches).most_common(1)[0][0]
+                    return f"{most_common[0]}세~{most_common[1]}세"
 
             return None
 
@@ -474,6 +500,12 @@ class ProductComparer:
                 keywords.append("유사암")
             elif "암" in query_keywords:
                 keywords.append("암")
+
+            # 뇌/심장 질환 키워드
+            if "뇌출혈" in query_keywords:
+                keywords.append("뇌출혈")
+            if "급성심근경색" in query_keywords:
+                keywords.append("급성심근경색")
 
             # 보장 타입 키워드 추가
             if "진단" in query_keywords:
@@ -531,9 +563,31 @@ class ProductComparer:
             elif "암" in keywords:
                 exclude_condition = " AND (cov.coverage_name NOT LIKE '%%유사암%%' OR cov.coverage_name LIKE '%%유사암제외%%' OR cov.coverage_name LIKE '%%유사암 제외%%')"
 
-            # ORDER BY: 보장금액 높은 순 (단, "(유사암제외)" 패턴은 긍정적 의미이므로 우선순위 유지)
             # 최소 금액 필터: 10만원 미만은 파싱 오류로 간주 (수술비/진단비 등은 최소 수백만원)
             min_amount_filter = " AND (b.benefit_amount >= 100000 OR b.benefit_amount IS NULL)"
+
+            # 구체적 담보 우선 정렬:
+            # - 제자리암, 경계성종양, 갑상선암, 기타피부암 등 세부 타입 검색 시
+            # - 통합 coverage(이름에 여러 서브타입 포함)보다 개별 coverage 우선
+            # - 진단/수술 타입 매칭 우선, 그 다음 짧은 이름 우선
+            specific_subtypes = ["제자리암", "경계성종양", "갑상선암", "기타피부암"]
+            is_specific_search = any(st in keywords for st in specific_subtypes)
+
+            # 보장 타입 우선순위 (진단 vs 수술)
+            type_priority_case = ""
+            if "진단" in keywords:
+                # 진단비 검색: 진단 포함 coverage 우선
+                type_priority_case = "CASE WHEN cov.coverage_name LIKE '%%진단%%' THEN 0 ELSE 1 END,"
+            elif "수술" in keywords:
+                # 수술비 검색: 수술 포함 coverage 우선
+                type_priority_case = "CASE WHEN cov.coverage_name LIKE '%%수술%%' THEN 0 ELSE 1 END,"
+
+            if is_specific_search:
+                # 구체적 서브타입 검색: 타입 매칭 우선 → 짧은 이름 우선
+                order_clause = f"ORDER BY {type_priority_case} LENGTH(cov.coverage_name) ASC, b.benefit_amount DESC NULLS LAST"
+            else:
+                # 일반 검색: 보장금액 높은 순
+                order_clause = "ORDER BY b.benefit_amount DESC NULLS LAST"
 
             query = f"""
                 SELECT
@@ -549,8 +603,7 @@ class ProductComparer:
                   AND ({like_conditions})
                   {exclude_condition}
                   {min_amount_filter}
-                ORDER BY
-                    b.benefit_amount DESC NULLS LAST
+                {order_clause}
                 LIMIT 1
             """
 

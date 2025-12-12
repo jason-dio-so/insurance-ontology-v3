@@ -288,11 +288,16 @@ async def hybrid_search(request: HybridSearchRequest):
         # 템플릿 기반 검색이면 템플릿 파라미터 우선 사용
         if request.templateId and request.searchParams:
             print(f"[DEBUG] Template-based search: {request.templateId}")
-            nl_entities = {"filters": {}, "companies": [], "coverages": []}
 
-            # 회사명만 추출 (NL Mapper 사용)
+            # 전체 엔티티 추출 (keywords 포함)
             temp_entities = nl_mapper.extract_entities(request.query)
-            nl_entities["companies"] = temp_entities.get("companies", [])
+
+            nl_entities = {
+                "filters": {},
+                "companies": temp_entities.get("companies", []),
+                "coverages": [],
+                "keywords": temp_entities.get("keywords", [])  # 키워드 추출 추가
+            }
             nl_entities["filters"]["company_id"] = temp_entities.get("filters", {}).get("company_id")
 
             # 담보명은 템플릿에서 지정한 키워드로만 제한
