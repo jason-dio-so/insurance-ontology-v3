@@ -81,8 +81,8 @@ db_refactoring/docs/
 |----|------|------|------|--------|--------|
 | 1.1 | 디렉토리 구조 생성 | ✅ COMPLETED | - | 2025-12-13 | 2025-12-13 |
 | 1.2 | 현재 스키마 덤프 실행 | ✅ COMPLETED | 1.1 | 2025-12-13 | 2025-12-13 |
-| 1.3 | `db/postgres/001_initial_schema.sql` 정리 | ✅ COMPLETED | 1.2 | 2025-12-13 | 2025-12-13 |
-| 1.4 | `db/postgres/002_seed_data.sql` 생성 | ✅ COMPLETED | 1.2 | 2025-12-13 | 2025-12-13 |
+| 1.3 | `db_refactoring/postgres/001_initial_schema.sql` 정리 | ✅ COMPLETED | 1.2 | 2025-12-13 | 2025-12-13 |
+| 1.4 | `db_refactoring/postgres/002_seed_data.sql` 생성 | ✅ COMPLETED | 1.2 | 2025-12-13 | 2025-12-13 |
 | 1.5 | 스키마 파일 검증 (재적용 테스트) | ✅ COMPLETED | 1.3, 1.4 | 2025-12-13 | 2025-12-13 |
 
 ### Task 상세
@@ -91,7 +91,7 @@ db_refactoring/docs/
 
 | 항목 | 내용 |
 |------|------|
-| 설명 | `db/postgres/`, `db/neo4j/`, `db/docs/`, `db/scripts/`, `db/migrations/` 구조 생성 |
+| 설명 | `db_refactoring/postgres/`, `db_refactoring/neo4j/`, `db_refactoring/docs/`, `db_refactoring/scripts/`, `db_refactoring/migrations/` 구조 생성 |
 | 명령어 | `mkdir -p db/{postgres,neo4j,docs,scripts,migrations/versions}` |
 | 완료 기준 | 모든 디렉토리 존재 확인 |
 
@@ -100,17 +100,17 @@ db_refactoring/docs/
 | 항목 | 내용 |
 |------|------|
 | 설명 | pg_dump를 사용하여 현재 PostgreSQL 스키마 추출 |
-| 명령어 | `pg_dump "postgresql://postgres:postgres@127.0.0.1:5432/insurance_ontology" --schema-only --no-owner --no-privileges > db/postgres/001_initial_schema.sql` |
+| 명령어 | `pg_dump "postgresql://postgres:postgres@127.0.0.1:5432/insurance_ontology" --schema-only --no-owner --no-privileges > db_refactoring/postgres/001_initial_schema.sql` |
 | 완료 기준 | SQL 파일 생성, 문법 오류 없음 |
 
-#### 1.3 `db/postgres/001_initial_schema.sql` 정리
+#### 1.3 `db_refactoring/postgres/001_initial_schema.sql` 정리
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 덤프 파일 정리 (주석 추가, 순서 정렬, 불필요 내용 제거) |
 | 완료 기준 | 깔끔하게 정리된 스키마 파일 |
 
-#### 1.4 `db/postgres/002_seed_data.sql` 생성
+#### 1.4 `db_refactoring/postgres/002_seed_data.sql` 생성
 
 | 항목 | 내용 |
 |------|------|
@@ -134,15 +134,15 @@ db_refactoring/docs/
 
 | ID | Task | 상태 | 선행 | 시작일 | 완료일 |
 |----|------|------|------|--------|--------|
-| 1.5a.1 | `db/scripts/generate_docs.py` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
-| 1.5a.2 | `db/docs/DATA_DICTIONARY.md` 자동 생성 | ✅ COMPLETED | 1.5a.1 | 2025-12-13 | 2025-12-13 |
-| 1.5a.3 | `db/docs/RELATIONSHIP_MAP.md` 자동 생성 | ✅ COMPLETED | 1.5a.1 | 2025-12-13 | 2025-12-13 |
-| 1.5a.4 | `db/docs/ER_DIAGRAM.md` 수동 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
-| 1.5a.5 | `db/docs/DOMAIN_MODEL.md` 수동 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
+| 1.5a.1 | `db_refactoring/scripts/generate_docs.py` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
+| 1.5a.2 | `db_refactoring/docs/DATA_DICTIONARY.md` 자동 생성 | ✅ COMPLETED | 1.5a.1 | 2025-12-13 | 2025-12-13 |
+| 1.5a.3 | `db_refactoring/docs/RELATIONSHIP_MAP.md` 자동 생성 | ✅ COMPLETED | 1.5a.1 | 2025-12-13 | 2025-12-13 |
+| 1.5a.4 | `db_refactoring/docs/ER_DIAGRAM.md` 수동 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
+| 1.5a.5 | `db_refactoring/docs/DOMAIN_MODEL.md` 수동 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
 
 ### Task 상세
 
-#### 1.5a.1 `db/scripts/generate_docs.py` 작성
+#### 1.5a.1 `db_refactoring/scripts/generate_docs.py` 작성
 
 | 항목 | 내용 |
 |------|------|
@@ -156,14 +156,14 @@ db_refactoring/docs/
 | 설명 | generate_docs.py 실행하여 DATA_DICTIONARY.md, RELATIONSHIP_MAP.md 생성 |
 | 완료 기준 | 15개 테이블 모두 문서화 |
 
-#### 1.5a.4 `db/docs/ER_DIAGRAM.md` 수동 작성
+#### 1.5a.4 `db_refactoring/docs/ER_DIAGRAM.md` 수동 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | Mermaid 기반 E-R 다이어그램 작성 |
 | 완료 기준 | 전체 구조 + 도메인별 상세 다이어그램 |
 
-#### 1.5a.5 `db/docs/DOMAIN_MODEL.md` 수동 작성
+#### 1.5a.5 `db_refactoring/docs/DOMAIN_MODEL.md` 수동 작성
 
 | 항목 | 내용 |
 |------|------|
@@ -180,43 +180,43 @@ db_refactoring/docs/
 
 | ID | Task | 상태 | 선행 | 시작일 | 완료일 |
 |----|------|------|------|--------|--------|
-| 1.5b.1 | `db/docs/GRAPH_SCHEMA.md` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
-| 1.5b.2 | `db/docs/NODE_DICTIONARY.md` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
-| 1.5b.3 | `db/docs/RELATIONSHIP_DICTIONARY.md` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
-| 1.5b.4 | `db/docs/GRAPH_PATTERNS.md` 작성 | ✅ COMPLETED | 1.5b.2, 1.5b.3 | 2025-12-13 | 2025-12-13 |
-| 1.5b.5 | `db/docs/ONTOLOGY_GAP_ANALYSIS.md` 작성 | ✅ COMPLETED | 1.5b.1 | 2025-12-13 | 2025-12-13 |
+| 1.5b.1 | `db_refactoring/docs/GRAPH_SCHEMA.md` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
+| 1.5b.2 | `db_refactoring/docs/NODE_DICTIONARY.md` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
+| 1.5b.3 | `db_refactoring/docs/RELATIONSHIP_DICTIONARY.md` 작성 | ✅ COMPLETED | 1.5 | 2025-12-13 | 2025-12-13 |
+| 1.5b.4 | `db_refactoring/docs/GRAPH_PATTERNS.md` 작성 | ✅ COMPLETED | 1.5b.2, 1.5b.3 | 2025-12-13 | 2025-12-13 |
+| 1.5b.5 | `db_refactoring/docs/ONTOLOGY_GAP_ANALYSIS.md` 작성 | ✅ COMPLETED | 1.5b.1 | 2025-12-13 | 2025-12-13 |
 
 ### Task 상세
 
-#### 1.5b.1 `db/docs/GRAPH_SCHEMA.md` 작성
+#### 1.5b.1 `db_refactoring/docs/GRAPH_SCHEMA.md` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | Neo4j 그래프 모델 개요, 설계 원칙, 현재 상태 (640노드, 623관계) |
 | 완료 기준 | 그래프 모델 설계 문서 완성 |
 
-#### 1.5b.2 `db/docs/NODE_DICTIONARY.md` 작성
+#### 1.5b.2 `db_refactoring/docs/NODE_DICTIONARY.md` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 8개 노드 레이블별 속성 정의 (Company, Product, Coverage, Benefit 등) |
 | 완료 기준 | 모든 노드 속성 문서화 |
 
-#### 1.5b.3 `db/docs/RELATIONSHIP_DICTIONARY.md` 작성
+#### 1.5b.3 `db_refactoring/docs/RELATIONSHIP_DICTIONARY.md` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 6개 관계 타입 정의 (HAS_PRODUCT, OFFERS, HAS_BENEFIT 등) |
 | 완료 기준 | 모든 관계 카디널리티, 방향성 문서화 |
 
-#### 1.5b.4 `db/docs/GRAPH_PATTERNS.md` 작성
+#### 1.5b.4 `db_refactoring/docs/GRAPH_PATTERNS.md` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 자주 사용되는 Cypher 쿼리 패턴 |
 | 완료 기준 | 기본 조회, 계층 탐색, 비교 분석 패턴 문서화 |
 
-#### 1.5b.5 `db/docs/ONTOLOGY_GAP_ANALYSIS.md` 작성
+#### 1.5b.5 `db_refactoring/docs/ONTOLOGY_GAP_ANALYSIS.md` 작성
 
 | 항목 | 내용 |
 |------|------|
@@ -254,7 +254,7 @@ db_refactoring/docs/
 
 | 항목 | 내용 |
 |------|------|
-| 명령어 | `cd db && alembic init migrations` |
+| 명령어 | `cd db_refactoring && alembic init migrations` |
 | 설정 | `alembic.ini`에 sqlalchemy.url 설정, `env.py`에 환경변수 로드 |
 
 #### 2.5-2.6 마이그레이션 파일 생성
@@ -365,21 +365,21 @@ db_refactoring/docs/
 
 ### Task 상세
 
-#### 3.1 `db/scripts/init_db.sh` 작성
+#### 3.1 `db_refactoring/scripts/init_db.sh` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 스키마 생성 + 시드 데이터 적재 + Alembic 스탬프 |
 | 완료 기준 | 빈 DB에서 전체 초기화 성공 |
 
-#### 3.2 `db/scripts/verify_schema.py` 작성
+#### 3.2 `db_refactoring/scripts/verify_schema.py` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 현재 DB 스키마가 정의된 스키마와 일치하는지 검증 |
 | 완료 기준 | 15개 테이블, 52개 인덱스, pgvector 확장 검증 |
 
-#### 3.3 `db/scripts/migrate.sh` 작성
+#### 3.3 `db_refactoring/scripts/migrate.sh` 작성
 
 | 항목 | 내용 |
 |------|------|
@@ -411,21 +411,21 @@ db_refactoring/docs/
 
 ### Task 상세
 
-#### 4.1 `db/neo4j/001_graph_schema.cypher` 생성
+#### 4.1 `db_refactoring/neo4j/001_graph_schema.cypher` 생성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | 제약조건 (UNIQUE), 인덱스, 노드/관계 스키마 정의 |
 | 완료 기준 | cypher-shell로 실행 가능 |
 
-#### 4.2 `db/scripts/init_neo4j.sh` 작성
+#### 4.2 `db_refactoring/scripts/init_neo4j.sh` 작성
 
 | 항목 | 내용 |
 |------|------|
 | 설명 | Neo4j 초기화 + graph_loader.py 호출 |
 | 완료 기준 | 빈 Neo4j에서 전체 동기화 성공 |
 
-#### 4.3 `db/scripts/verify_neo4j_sync.py` 작성
+#### 4.3 `db_refactoring/scripts/verify_neo4j_sync.py` 작성
 
 | 항목 | 내용 |
 |------|------|
@@ -456,15 +456,15 @@ db_refactoring/docs/
 
 | ID | Task | 상태 | 선행 | 시작일 | 완료일 |
 |----|------|------|------|--------|--------|
-| 5.1 | `db/postgres/003_pgvector_setup.sql` 생성 | ⬜ PENDING | 1.5 | - | - |
+| 5.1 | `db_refactoring/postgres/003_pgvector_setup.sql` 생성 | ⬜ PENDING | 1.5 | - | - |
 | 5.2 | HNSW 인덱스 파라미터 가이드 문서화 | ⬜ PENDING | 5.1 | - | - |
-| 5.3 | `db/scripts/monitor_vector_search.py` 작성 | ⬜ PENDING | 5.1 | - | - |
+| 5.3 | `db_refactoring/scripts/monitor_vector_search.py` 작성 | ⬜ PENDING | 5.1 | - | - |
 | 5.4 | 임베딩 모델 변경 마이그레이션 템플릿 작성 | ⬜ PENDING | 5.2 | - | - |
 | 5.5 | 벡터 검색 벤치마크 실행 및 기준선 수립 | ⬜ PENDING | 5.3 | - | - |
 
 ### Task 상세
 
-#### 5.1 `db/postgres/003_pgvector_setup.sql` 생성
+#### 5.1 `db_refactoring/postgres/003_pgvector_setup.sql` 생성
 
 | 항목 | 내용 |
 |------|------|
@@ -478,7 +478,7 @@ db_refactoring/docs/
 | 설명 | m, ef_construction, ef_search 파라미터 튜닝 가이드 |
 | 완료 기준 | 데이터 규모별 권장값 문서화 |
 
-#### 5.3 `db/scripts/monitor_vector_search.py` 작성
+#### 5.3 `db_refactoring/scripts/monitor_vector_search.py` 작성
 
 | 항목 | 내용 |
 |------|------|
