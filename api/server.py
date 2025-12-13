@@ -189,10 +189,9 @@ async def startup_event():
     """서버 시작 시 초기화"""
     global retriever, assembler, prompt_builder, nl_mapper, llm_client, info_extractor
 
-    postgres_url = os.getenv(
-        "POSTGRES_URL",
-        "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-    )
+    postgres_url = os.getenv("POSTGRES_URL")
+    if not postgres_url:
+        raise RuntimeError("POSTGRES_URL environment variable is required. Check .env file.")
 
     retriever = HybridRetriever(postgres_url=postgres_url)
     assembler = ContextAssembler(postgres_url=postgres_url)

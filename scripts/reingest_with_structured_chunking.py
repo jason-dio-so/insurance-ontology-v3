@@ -17,15 +17,21 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional
 import psycopg2
+from dotenv import load_dotenv
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Load environment variables from .env file
+load_dotenv(project_root / ".env")
+
 from ingestion.table_parser import TableParser, should_use_structured_parsing
 
 
-POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/insurance_ontology")
+POSTGRES_URL = os.getenv("POSTGRES_URL")
+if not POSTGRES_URL:
+    raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
 
 
 class DocumentReingester:

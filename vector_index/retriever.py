@@ -17,7 +17,11 @@ Usage:
 import os
 import psycopg2
 from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv
 from .factory import get_embedder
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class HybridRetriever:
@@ -33,10 +37,9 @@ class HybridRetriever:
             postgres_url: PostgreSQL 연결 문자열
             backend: 임베딩 백엔드 (jina 또는 openai)
         """
-        self.postgres_url = postgres_url or os.getenv(
-            "POSTGRES_URL",
-            "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-        )
+        self.postgres_url = postgres_url or os.getenv("POSTGRES_URL")
+        if not self.postgres_url:
+            raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
 
         self.backend = backend or os.getenv("EMBEDDING_BACKEND", "fastembed")
         self.embedder = get_embedder(self.backend)

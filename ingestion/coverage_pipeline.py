@@ -16,6 +16,10 @@ from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Optional
 import logging
 import argparse
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -255,7 +259,9 @@ def main():
 
     args = parser.parse_args()
 
-    db_url = os.getenv('POSTGRES_URL', 'postgresql://postgres:postgres@localhost:5432/insurance_ontology')
+    db_url = os.getenv('POSTGRES_URL')
+    if not db_url:
+        raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
 
     pipeline = CoveragePipeline(db_url)
 

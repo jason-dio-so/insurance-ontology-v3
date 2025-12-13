@@ -18,8 +18,12 @@ Usage:
 import os
 import psycopg2
 from typing import Dict, List, Any, Optional
+from dotenv import load_dotenv
 from ontology.nl_mapping import NLMapper
 from vector_index.factory import get_embedder
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class HybridRetriever:
@@ -35,10 +39,9 @@ class HybridRetriever:
             postgres_url: PostgreSQL 연결 문자열
             embedder_backend: 임베딩 백엔드 ("fastembed" 또는 "openai", None=환경변수 사용)
         """
-        self.postgres_url = postgres_url or os.getenv(
-            "POSTGRES_URL",
-            "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-        )
+        self.postgres_url = postgres_url or os.getenv("POSTGRES_URL")
+        if not self.postgres_url:
+            raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
         self.pg_conn = psycopg2.connect(self.postgres_url)
         # 환경변수에서 백엔드 가져오기 (기본값: openai)
         backend = embedder_backend or os.getenv("EMBEDDING_BACKEND", "openai")

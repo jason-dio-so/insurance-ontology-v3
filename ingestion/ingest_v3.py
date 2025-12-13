@@ -23,6 +23,10 @@ import psycopg2
 from pathlib import Path
 from typing import Dict, List, Optional
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from ingestion.parsers import TextParser, TableParser
 from ingestion.parsers.hybrid_parser_v2 import HybridParserV2
@@ -501,7 +505,9 @@ def main():
     # Use --metadata flag if provided, otherwise use positional argument
     metadata_json = args.metadata_json_flag if args.metadata_json_flag else args.metadata_json
 
-    db_url = os.getenv('POSTGRES_URL', 'postgresql://postgres:postgres@localhost:5432/insurance_ontology')
+    db_url = os.getenv('POSTGRES_URL')
+    if not db_url:
+        raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
 
     pipeline = DocumentIngestionPipeline(db_url)
     pipeline.ingest_all_documents(metadata_json)

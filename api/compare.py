@@ -16,7 +16,11 @@ Usage:
 import os
 import psycopg2
 from typing import Dict, List, Any, Optional
+from dotenv import load_dotenv
 from retrieval.hybrid_retriever import HybridRetriever
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class ProductComparer:
@@ -36,10 +40,9 @@ class ProductComparer:
             postgres_url: PostgreSQL 연결 문자열
             hybrid_retriever: 하이브리드 검색기 (선택)
         """
-        self.postgres_url = postgres_url or os.getenv(
-            "POSTGRES_URL",
-            "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-        )
+        self.postgres_url = postgres_url or os.getenv("POSTGRES_URL")
+        if not self.postgres_url:
+            raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
         self.pg_conn = psycopg2.connect(self.postgres_url)
 
         if hybrid_retriever:

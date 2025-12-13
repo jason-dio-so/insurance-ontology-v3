@@ -23,9 +23,13 @@ Usage:
 """
 
 import re
+import os
 import psycopg2
 from typing import Dict, List, Any, Optional
-import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class NLMapper:
@@ -79,10 +83,9 @@ class NLMapper:
         Args:
             postgres_url: PostgreSQL 연결 문자열
         """
-        self.postgres_url = postgres_url or os.getenv(
-            "POSTGRES_URL",
-            "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-        )
+        self.postgres_url = postgres_url or os.getenv("POSTGRES_URL")
+        if not self.postgres_url:
+            raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
         self.pg_conn = psycopg2.connect(self.postgres_url)
 
         # 엔티티 캐시 (성능 최적화)

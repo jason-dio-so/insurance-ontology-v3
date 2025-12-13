@@ -38,10 +38,9 @@ class InsuranceCLI:
 
     def __init__(self):
         """Initialize CLI with database connections"""
-        self.postgres_url = os.getenv(
-            "POSTGRES_URL",
-            "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-        )
+        self.postgres_url = os.getenv("POSTGRES_URL")
+        if not self.postgres_url:
+            raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
         self.retriever = HybridRetriever(postgres_url=self.postgres_url)
         self.assembler = ContextAssembler(postgres_url=self.postgres_url)
         self.prompt_builder = PromptBuilder()

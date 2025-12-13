@@ -21,6 +21,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Tuple
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -221,7 +225,9 @@ class DiseaseCodeLoader:
 
 def main():
     """Main function"""
-    db_url = os.getenv('POSTGRES_URL', 'postgresql://postgres:postgres@localhost:5432/insurance_ontology')
+    db_url = os.getenv('POSTGRES_URL')
+    if not db_url:
+        raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
 
     loader = DiseaseCodeLoader(db_url)
     summary = loader.load_all_disease_code_sets()

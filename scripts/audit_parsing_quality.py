@@ -14,16 +14,19 @@ import json
 import psycopg2
 from typing import Dict, List, Any
 from collections import defaultdict
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class ParsingQualityAuditor:
     """파싱 품질 감사기"""
 
     def __init__(self, postgres_url: str = None):
-        self.postgres_url = postgres_url or os.getenv(
-            "POSTGRES_URL",
-            "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-        )
+        self.postgres_url = postgres_url or os.getenv("POSTGRES_URL")
+        if not self.postgres_url:
+            raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
         self.conn = psycopg2.connect(self.postgres_url)
 
     def audit_all_companies(self) -> Dict[str, Any]:

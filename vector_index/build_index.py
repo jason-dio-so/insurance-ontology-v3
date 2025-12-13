@@ -217,10 +217,9 @@ def main():
     print()
 
     # PostgreSQL 연결
-    postgres_url = os.getenv(
-        "POSTGRES_URL",
-        "postgresql://postgres:postgres@localhost:5432/insurance_ontology"
-    )
+    postgres_url = os.getenv("POSTGRES_URL")
+    if not postgres_url:
+        raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
 
     try:
         pg_conn = psycopg2.connect(postgres_url)
