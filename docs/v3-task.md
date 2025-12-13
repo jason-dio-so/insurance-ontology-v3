@@ -68,7 +68,7 @@ Phase 5: 엔티티 추출
     └── Clause-Coverage 매핑
     │
     ▼
-Phase 6: 그래프 동기화 ✅ 완료
+Phase 6: 그래프 동기화
     └── PostgreSQL → Neo4j
     │
     ▼
@@ -99,7 +99,7 @@ Phase 11: CI/CD 통합
     └── GitHub Actions
     │
     ▼
-Phase 12: 온톨로지 확장 ✅ 완료
+Phase 12: 온톨로지 확장
     ├── RiskEvent, Condition, Exclusion
     └── Plan 노드
 ```
@@ -393,11 +393,10 @@ python -m ingestion.load_disease_codes
 
 ---
 
-## Phase 6: 그래프 동기화 및 Neo4j 스키마 관리 (Day 5-6) 
+## Phase 6: 그래프 동기화 및 Neo4j 스키마 관리 (Day 5-6)
 
 **목표**: Neo4j 그래프 스키마 정의 및 PostgreSQL 동기화
 **소요 시간**: 3-4시간
-**완료일**: 2025-12-13
 
 | ID | Task | 상태 | 선행 | 설명 |
 |----|------|------|------|------|
@@ -629,23 +628,22 @@ jobs:
 
 ---
 
-## Phase 12: 온톨로지 확장 (Day 11-13) ✅ 완료
+## Phase 12: 온톨로지 확장 (Day 11-13)
 
 **목표**: ontology_concept.md 기반 Neo4j/PostgreSQL 스키마 확장
 **소요 시간**: 6-8시간
-**완료일**: 2025-12-13
 
 | ID | Task | 상태 | 선행 | 설명 |
 |----|------|------|------|------|
-| 12.1 | `risk_event` 테이블 설계 | ✅ | 6.6 | event_type, severity_level, icd_pattern |
-| 12.2 | `condition` 테이블 설계 | ✅ (기존) | 6.6 | 이미 존재하는 테이블 활용 |
-| 12.3 | `exclusion` 테이블 설계 | ✅ (기존) | 6.6 | 이미 존재하는 테이블 활용 |
-| 12.4 | Alembic 마이그레이션 작성 | ✅ | 12.1-3 | b3192d16d07b, e70cdd9c14e8 |
-| 12.5 | Neo4j RiskEvent 노드 추가 | ✅ | 12.4 | TRIGGERS 관계 포함 |
-| 12.6 | Neo4j Condition 노드 추가 | ✅ | 12.4 | HAS_CONDITION 관계 |
-| 12.7 | Neo4j Exclusion 노드 추가 | ✅ | 12.4 | HAS_EXCLUSION 관계 |
-| 12.8 | graph_loader.py 확장 | ✅ | 12.5-7 | sync_risk_events, sync_conditions, sync_exclusions |
-| 12.9 | (선택) Plan 노드 설계 | ✅ | 12.8 | plan, plan_coverage 테이블, sync_plans() |
+| 12.1 | `risk_event` 테이블 설계 | ⬜ | 6.6 | event_type, severity_level, icd_pattern |
+| 12.2 | `condition` 테이블 설계 | ⬜ | 6.6 | 이미 존재하는 테이블 활용 |
+| 12.3 | `exclusion` 테이블 설계 | ⬜ | 6.6 | 이미 존재하는 테이블 활용 |
+| 12.4 | Alembic 마이그레이션 작성 | ⬜ | 12.1-3 | 새 테이블 마이그레이션 |
+| 12.5 | Neo4j RiskEvent 노드 추가 | ⬜ | 12.4 | TRIGGERS 관계 포함 |
+| 12.6 | Neo4j Condition 노드 추가 | ⬜ | 12.4 | HAS_CONDITION 관계 |
+| 12.7 | Neo4j Exclusion 노드 추가 | ⬜ | 12.4 | HAS_EXCLUSION 관계 |
+| 12.8 | graph_loader.py 확장 | ⬜ | 12.5-7 | sync_risk_events, sync_conditions, sync_exclusions |
+| 12.9 | (선택) Plan 노드 설계 | ⬜ | 12.8 | plan, plan_coverage 테이블, sync_plans() |
 
 ### 12.1-12.3 새 테이블 설계
 
@@ -674,22 +672,22 @@ python -m ingestion.graph_loader --sync-exclusions
 
 ## 전체 일정 요약
 
-| Phase | 작업 | 소요 시간 | 누적 일수 | 상태 |
-|-------|------|----------|----------|------|
-| Phase 0 | 환경 준비 | 2시간 | Day 0 | ⬜ |
-| Phase 1 | 인프라 구축 | 3시간 | Day 1 | ⬜ |
-| Phase 2 | 스키마 생성 | 4시간 | Day 1-2 | ⬜ |
-| Phase 3 | 문서 변환 | 6시간 | Day 2-3 | ⬜ |
-| Phase 4 | 데이터 수집 | 3시간 | Day 3-4 | ⬜ |
-| Phase 5 | 엔티티 추출 | 4시간 | Day 4-5 | ⬜ |
-| Phase 6 | 그래프 동기화 | 4시간 | Day 5-6 | ✅ 완료 |
-| Phase 7 | 벡터 인덱스 | 6시간 | Day 5-6 | ⬜ |
-| Phase 8 | 검색 시스템 | 3시간 | Day 6-7 | ⬜ |
-| Phase 9 | API 개발 | 4시간 | Day 7-8 | ⬜ |
-| Phase 10 | 검증 및 배포 | 6시간 | Day 8-10 | ⬜ |
-| Phase 11 | CI/CD 통합 | 4시간 | Day 10-11 | ⬜ |
-| Phase 12 | 온톨로지 확장 | 8시간 | Day 11-13 | ✅ 완료 |
-| **총계** | | **~57시간** | **~13일** | |
+| Phase | 작업 | 소요 시간 | 누적 일수 |
+|-------|------|----------|----------|
+| Phase 0 | 환경 준비 | 2시간 | Day 0 |
+| Phase 1 | 인프라 구축 | 3시간 | Day 1 |
+| Phase 2 | 스키마 생성 | 4시간 | Day 1-2 |
+| Phase 3 | 문서 변환 | 6시간 | Day 2-3 |
+| Phase 4 | 데이터 수집 | 3시간 | Day 3-4 |
+| Phase 5 | 엔티티 추출 | 4시간 | Day 4-5 |
+| Phase 6 | 그래프 동기화 | 4시간 | Day 5-6 |
+| Phase 7 | 벡터 인덱스 | 6시간 | Day 5-6 |
+| Phase 8 | 검색 시스템 | 3시간 | Day 6-7 |
+| Phase 9 | API 개발 | 4시간 | Day 7-8 |
+| Phase 10 | 검증 및 배포 | 6시간 | Day 8-10 |
+| Phase 11 | CI/CD 통합 | 4시간 | Day 10-11 |
+| Phase 12 | 온톨로지 확장 | 8시간 | Day 11-13 |
+| **총계** | | **~57시간** | **~13일** |
 
 ---
 
@@ -716,8 +714,7 @@ python -m ingestion.graph_loader --sync-exclusions
 
 ---
 
-**문서 버전**: 1.1
+**문서 버전**: 1.0
 **최종 수정**: 2025-12-13
 **변경 이력**:
 - v1.0 (2025-12-13): 초기 작성
-- v1.1 (2025-12-13): task.md 진행 상황 반영 - Phase 6 (그래프 동기화), Phase 12 (온톨로지 확장) 완료 표시
