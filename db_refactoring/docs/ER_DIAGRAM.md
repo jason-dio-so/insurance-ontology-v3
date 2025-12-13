@@ -115,6 +115,8 @@ erDiagram
         varchar coverage_name
         varchar coverage_category
         varchar renewal_type
+        varchar clause_number
+        varchar coverage_period
         boolean is_basic
         text notes
     }

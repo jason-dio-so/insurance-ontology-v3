@@ -190,10 +190,12 @@ CREATE TABLE public.coverage (
     product_id integer NOT NULL,
     group_id integer,
     coverage_code character varying(200),
-    coverage_name character varying(200) NOT NULL,
+    coverage_name TEXT NOT NULL,
     coverage_category character varying(100),
     renewal_type character varying(20),
     is_basic boolean DEFAULT false,
+    clause_number character varying(50),
+    coverage_period character varying(20),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     parent_coverage_id integer
@@ -203,6 +205,8 @@ COMMENT ON TABLE public.coverage IS '담보 (특별약관 단위)';
 COMMENT ON COLUMN public.coverage.group_id IS '소속 특별약관군';
 COMMENT ON COLUMN public.coverage.renewal_type IS '갱신형, 비갱신형';
 COMMENT ON COLUMN public.coverage.is_basic IS '기본형 담보 여부';
+COMMENT ON COLUMN public.coverage.clause_number IS '조항 번호 (예: 119, 121) - coverage_name 오염 방지용';
+COMMENT ON COLUMN public.coverage.coverage_period IS '기간 정보 (예: 10년, 15년) - coverage_name 오염 방지용';
 
 CREATE SEQUENCE public.coverage_id_seq
     AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;

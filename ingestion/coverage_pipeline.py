@@ -111,9 +111,28 @@ class CoveragePipeline:
         cur = conn.cursor()
 
         inserted = 0
+        skipped_invalid = 0
+
         for cov in coverages:
             try:
-                # Insert coverage
+                # Clean coverage name and extract metadata (problem.md fix)
+                cleaned = self._clean_coverage_name(cov['coverage_name'])
+
+                # Skip invalid coverage names (period-only, too short, etc.)
+                if not cleaned['is_valid']:
+                    skipped_invalid += 1
+                    logger.debug(f"Skipped invalid coverage: {cov['coverage_name']}")
+                    continue
+
+                # Use cleaned coverage_name
+                coverage_name = cleaned['coverage_name']
+                clause_number = cleaned['clause_number']
+                coverage_period = cleaned['coverage_period']
+
+                # Determine renewal_type (cleaned value takes precedence)
+                renewal_type = cleaned['renewal_type'] or self._extract_renewal_type(coverage_name)
+
+                # Insert coverage with new columns
                 cur.execute("""
                     INSERT INTO coverage (
                         product_id,
@@ -121,24 +140,28 @@ class CoveragePipeline:
                         coverage_name,
                         coverage_category,
                         renewal_type,
-                        is_basic
+                        is_basic,
+                        clause_number,
+                        coverage_period
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (product_id, coverage_code) DO NOTHING
                     RETURNING id
                 """, (
                     cov['product_id'],
-                    self._generate_coverage_code(cov['coverage_name']),
-                    cov['coverage_name'],
-                    self._infer_coverage_category(cov['coverage_name']),
-                    self._extract_renewal_type(cov['coverage_name']),
-                    '기본계약' in cov['coverage_name']
+                    self._generate_coverage_code(coverage_name),
+                    coverage_name,
+                    self._infer_coverage_category(coverage_name),
+                    renewal_type,
+                    '기본계약' in coverage_name,
+                    clause_number,
+                    coverage_period
                 ))
 
                 result = cur.fetchone()
                 if result:
                     inserted += 1
-                    logger.debug(f"Inserted coverage: {cov['coverage_name']} (id={result[0]})")
+                    logger.debug(f"Inserted coverage: {coverage_name} (id={result[0]})")
 
             except Exception as e:
                 logger.error(f"Failed to insert coverage {cov['coverage_name']}: {e}")
@@ -148,7 +171,7 @@ class CoveragePipeline:
         cur.close()
         conn.close()
 
-        logger.info(f"Inserted {inserted} new coverages")
+        logger.info(f"Inserted {inserted} new coverages (skipped {skipped_invalid} invalid)")
         return inserted
 
     def _generate_coverage_code(self, coverage_name: str) -> str:
@@ -221,6 +244,74 @@ class CoveragePipeline:
         elif '비갱신형' in coverage_name:
             return '비갱신형'
         return None
+
+    def _clean_coverage_name(self, raw_name: str) -> Dict:
+        """
+        Clean coverage name and extract clause_number, coverage_period, renewal_type
+
+        Handles data pollution patterns from problem.md:
+        - "119 뇌졸중진단비" → clause_number: "119", coverage_name: "뇌졸중진단비"
+        - "10년", "15년" → skip (period-only data)
+        - "[갱신형]담보명" → renewal_type: "갱신형", coverage_name: "담보명"
+
+        Args:
+            raw_name: Original coverage name from structured_data
+
+        Returns:
+            Dict with keys: coverage_name, clause_number, coverage_period, renewal_type, is_valid
+        """
+        import re
+
+        result = {
+            'coverage_name': raw_name,
+            'clause_number': None,
+            'coverage_period': None,
+            'renewal_type': None,
+            'is_valid': True
+        }
+
+        if not raw_name or not raw_name.strip():
+            result['is_valid'] = False
+            return result
+
+        name = raw_name.strip()
+
+        # Pattern 1: Period-only data ("10년", "15년", "20년")
+        if re.match(r'^(5|10|15|20|30)년$', name):
+            result['is_valid'] = False
+            result['coverage_period'] = name
+            return result
+
+        # Pattern 2: Clause number prefix ("119 뇌졸중진단비", "121 뇌출혈진단비")
+        clause_match = re.match(r'^(\d+)\s+(.+)$', name)
+        if clause_match:
+            result['clause_number'] = clause_match.group(1)
+            name = clause_match.group(2).strip()
+
+        # Pattern 3: Renewal type prefix ("[갱신형]담보명", "[비갱신형]담보명")
+        if name.startswith('[갱신형]'):
+            result['renewal_type'] = '갱신형'
+            name = name.replace('[갱신형]', '').strip()
+        elif name.startswith('[비갱신형]'):
+            result['renewal_type'] = '비갱신형'
+            name = name.replace('[비갱신형]', '').strip()
+
+        # Pattern 4: Period prefix ("10년형 암진단비")
+        period_match = re.match(r'^(\d+년형?)\s+(.+)$', name)
+        if period_match:
+            result['coverage_period'] = period_match.group(1)
+            name = period_match.group(2).strip()
+
+        # Validation: Too short name (< 3 characters)
+        if len(name) < 3:
+            result['is_valid'] = False
+
+        # Validation: Pure number
+        if name.isdigit():
+            result['is_valid'] = False
+
+        result['coverage_name'] = name
+        return result
 
     def run(self, carrier: Optional[str] = None) -> Dict:
         """
