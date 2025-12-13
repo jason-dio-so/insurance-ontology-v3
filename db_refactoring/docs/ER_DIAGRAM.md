@@ -66,6 +66,7 @@ erDiagram
         int company_id FK
         varchar product_code
         varchar product_name
+        varchar business_type
         varchar version
         date effective_date
     }
@@ -73,9 +74,12 @@ erDiagram
     product_variant {
         int id PK
         int product_id FK
+        varchar variant_name
         varchar variant_code
         varchar target_gender
         varchar target_age_range
+        int min_age
+        int max_age
         jsonb attributes
     }
 
@@ -83,6 +87,8 @@ erDiagram
         int id PK
         varchar category_code UK
         varchar category_name_kr
+        varchar category_name_en
+        text description
         int display_order
     }
 
@@ -90,9 +96,14 @@ erDiagram
         int id PK
         int company_id FK
         int category_id FK
+        int group_number
         varchar group_code
         varchar group_name_kr
+        varchar group_name_en
         boolean is_renewable
+        varchar version
+        int page_number
+        text description
     }
 
     coverage {
@@ -102,7 +113,10 @@ erDiagram
         int parent_coverage_id FK
         varchar coverage_code
         varchar coverage_name
+        varchar coverage_category
+        varchar renewal_type
         boolean is_basic
+        text notes
     }
 
     company ||--o{ product : "has"
@@ -128,8 +142,10 @@ erDiagram
         int coverage_id FK
         varchar benefit_name
         varchar benefit_type
+        text benefit_amount_text
         numeric benefit_amount
         varchar payment_frequency
+        text description
     }
 
     condition {
@@ -140,6 +156,7 @@ erDiagram
         int min_age
         int max_age
         int waiting_period_days
+        jsonb attributes
     }
 
     exclusion {
@@ -148,6 +165,7 @@ erDiagram
         varchar exclusion_type
         text exclusion_text
         boolean is_absolute
+        jsonb attributes
     }
 
     coverage ||--o{ benefit : "provides"
@@ -167,7 +185,10 @@ erDiagram
         int variant_id FK
         varchar doc_type
         varchar doc_subtype
+        varchar version
+        varchar file_path
         int total_pages
+        jsonb attributes
     }
 
     document_clause {
@@ -180,6 +201,9 @@ erDiagram
         varchar clause_type
         jsonb structured_data
         varchar section_type
+        int page_number
+        int hierarchy_level
+        jsonb attributes
     }
 
     clause_embedding {
@@ -221,6 +245,7 @@ erDiagram
         varchar code
         varchar code_type
         varchar description_kr
+        varchar description_en
     }
 
     disease_code_set ||--o{ disease_code : "contains"

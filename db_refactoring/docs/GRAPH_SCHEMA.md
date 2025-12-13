@@ -30,10 +30,10 @@ Neo4j (복제본)
 
 | 항목 | 값 |
 |------|-----|
-| 노드 수 | 640 |
-| 관계 수 | 623 |
-| 노드 레이블 | 8개 |
-| 관계 타입 | 6개 |
+| 노드 수 | 640+ |
+| 관계 수 | 623+ |
+| 노드 레이블 | 12개 |
+| 관계 타입 | 13개 |
 
 ---
 
@@ -42,46 +42,58 @@ Neo4j (복제본)
 ### 2.1 전체 구조
 
 ```
-(Company)──[:HAS_PRODUCT]──>(Product)
+(Company)──[:HAS_PRODUCT]──>(Product)──[:HAS_VARIANT]──>(ProductVariant)
      │                          │
-     │                    [:HAS_VARIANT]
+     │                     [:OFFERS]
      │                          ↓
-[:HAS_DOCUMENT]           (ProductVariant)
+[:HAS_DOCUMENT]            (Coverage)──[:PARENT_OF]──>(Coverage)
      ↓                          │
-(Document)                 [:OFFERS]
-                               ↓
-                          (Coverage)
-                               │
-                         [:HAS_BENEFIT]
-                               ↓
-                          (Benefit)
+(Document)               [:HAS_BENEFIT]──[:HAS_EXCLUSION]──>(Exclusion)
+     ↑                          ↓
+[:FROM_DOCUMENT]           (Benefit)
+     │                          │
+  (Plan)               [:TRIGGERS]──[:HAS_CONDITION]
+     │                     ↓              ↓
+[:FOR_PRODUCT]──>(Product)  (RiskEvent)  (Condition)
+[:INCLUDES]──>(Coverage)
 
 (DiseaseCodeSet)──[:CONTAINS]──>(DiseaseCode)
 ```
 
 ### 2.2 노드 레이블
 
-| 레이블 | 수량 | 설명 |
-|--------|------|------|
-| Company | 8 | 보험사 |
-| Product | 8 | 보험 상품 |
-| ProductVariant | 4 | 상품 변형 |
-| Coverage | 363 | 담보 |
-| Benefit | 357 | 급부 |
-| Document | 38 | 문서 |
-| DiseaseCodeSet | 9 | 질병코드 집합 |
-| DiseaseCode | 131 | 질병 코드 |
+| 레이블 | 설명 | 주요 속성 |
+|--------|------|-----------|
+| Company | 보험사 | id, code, name, business_type |
+| Product | 보험 상품 | id, code, name, business_type |
+| ProductVariant | 상품 변형 | id, code, name, target_gender, target_age_range |
+| Coverage | 담보 | id, code, name, category, renewal_type, is_basic |
+| Benefit | 급부 | id, name, amount, amount_text, type |
+| Document | 문서 | id, document_id, doc_type, doc_subtype, version, total_pages |
+| DiseaseCodeSet | 질병코드 집합 | id, name, description, version |
+| DiseaseCode | 질병 코드 | id, code, type, description |
+| RiskEvent | 위험 이벤트 | id, event_type, event_name, severity_level, icd_code_pattern |
+| Condition | 급여 조건 | id, condition_type, value, unit |
+| Exclusion | 면책 조건 | id, exclusion_type, description |
+| Plan | 가입설계 | id, plan_name, target_gender, target_age, insurance_period, payment_period, total_premium |
 
 ### 2.3 관계 타입
 
-| 관계 | 시작 노드 | 끝 노드 | 수량 | 설명 |
-|------|-----------|---------|------|------|
-| HAS_PRODUCT | Company | Product | 8 | 보험사가 상품 보유 |
-| HAS_VARIANT | Product | ProductVariant | 4 | 상품 변형 |
-| OFFERS | Product | Coverage | 363 | 상품이 담보 제공 |
-| HAS_BENEFIT | Coverage | Benefit | 357 | 담보가 급부 포함 |
-| HAS_DOCUMENT | Company | Document | ~38 | 보험사가 문서 발행 |
-| CONTAINS | DiseaseCodeSet | DiseaseCode | 131 | 질병코드 집합에 코드 포함 |
+| 관계 | 시작 노드 | 끝 노드 | 설명 |
+|------|-----------|---------|------|
+| HAS_PRODUCT | Company | Product | 보험사가 상품 보유 |
+| HAS_VARIANT | Product | ProductVariant | 상품 변형 |
+| OFFERS | Product | Coverage | 상품이 담보 제공 |
+| HAS_BENEFIT | Coverage | Benefit | 담보가 급부 포함 |
+| HAS_DOCUMENT | Company/Product/ProductVariant | Document | 문서 발행 |
+| CONTAINS | DiseaseCodeSet | DiseaseCode | 질병코드 집합에 코드 포함 |
+| PARENT_OF | Coverage | Coverage | 담보 계층 (부모-자식) |
+| TRIGGERS | Benefit | RiskEvent | 급부가 위험이벤트 트리거 |
+| HAS_CONDITION | Benefit | Condition | 급부의 조건 |
+| HAS_EXCLUSION | Coverage | Exclusion | 담보의 면책 조건 |
+| FOR_PRODUCT | Plan | Product | 가입설계가 속한 상품 |
+| INCLUDES | Plan | Coverage | 가입설계에 포함된 담보 (속성: sum_insured, premium) |
+| FROM_DOCUMENT | Plan | Document | 가입설계의 출처 문서 |
 
 ---
 
@@ -113,33 +125,63 @@ Company → Product → Coverage → Benefit
 
 ## 4. 제약조건 및 인덱스
 
-### 4.1 현재 제약조건
+### 4.1 제약조건 (UNIQUE)
 
 ```cypher
--- 유니크 제약 (자동 인덱스 생성)
-CREATE CONSTRAINT company_code IF NOT EXISTS
-FOR (c:Company) REQUIRE c.company_code IS UNIQUE;
+-- Company
+CREATE CONSTRAINT company_id IF NOT EXISTS FOR (c:Company) REQUIRE c.id IS UNIQUE;
+CREATE CONSTRAINT company_code IF NOT EXISTS FOR (c:Company) REQUIRE c.code IS UNIQUE;
 
-CREATE CONSTRAINT product_id IF NOT EXISTS
-FOR (p:Product) REQUIRE p.pg_id IS UNIQUE;
+-- Product
+CREATE CONSTRAINT product_id IF NOT EXISTS FOR (p:Product) REQUIRE p.id IS UNIQUE;
+CREATE CONSTRAINT product_code IF NOT EXISTS FOR (p:Product) REQUIRE p.code IS UNIQUE;
 
-CREATE CONSTRAINT coverage_id IF NOT EXISTS
-FOR (c:Coverage) REQUIRE c.pg_id IS UNIQUE;
+-- ProductVariant
+CREATE CONSTRAINT product_variant_id IF NOT EXISTS FOR (pv:ProductVariant) REQUIRE pv.id IS UNIQUE;
 
-CREATE CONSTRAINT benefit_id IF NOT EXISTS
-FOR (b:Benefit) REQUIRE b.pg_id IS UNIQUE;
+-- Coverage
+CREATE CONSTRAINT coverage_id IF NOT EXISTS FOR (c:Coverage) REQUIRE c.id IS UNIQUE;
+
+-- Benefit
+CREATE CONSTRAINT benefit_id IF NOT EXISTS FOR (b:Benefit) REQUIRE b.id IS UNIQUE;
+
+-- Document
+CREATE CONSTRAINT document_id IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE;
+CREATE CONSTRAINT document_document_id IF NOT EXISTS FOR (d:Document) REQUIRE d.document_id IS UNIQUE;
+
+-- DiseaseCodeSet / DiseaseCode
+CREATE CONSTRAINT disease_code_set_id IF NOT EXISTS FOR (dcs:DiseaseCodeSet) REQUIRE dcs.id IS UNIQUE;
+CREATE CONSTRAINT disease_code_id IF NOT EXISTS FOR (dc:DiseaseCode) REQUIRE dc.id IS UNIQUE;
+
+-- 확장 노드
+CREATE CONSTRAINT risk_event_id IF NOT EXISTS FOR (re:RiskEvent) REQUIRE re.id IS UNIQUE;
+CREATE CONSTRAINT condition_id IF NOT EXISTS FOR (cond:Condition) REQUIRE cond.id IS UNIQUE;
+CREATE CONSTRAINT exclusion_id IF NOT EXISTS FOR (ex:Exclusion) REQUIRE ex.id IS UNIQUE;
+CREATE CONSTRAINT plan_id IF NOT EXISTS FOR (pl:Plan) REQUIRE pl.id IS UNIQUE;
 ```
 
-### 4.2 권장 추가 인덱스
+### 4.2 인덱스
 
 ```cypher
--- 이름 검색용
-CREATE INDEX coverage_name IF NOT EXISTS
-FOR (c:Coverage) ON (c.coverage_name);
+-- 이름 검색
+CREATE INDEX company_name IF NOT EXISTS FOR (c:Company) ON (c.name);
+CREATE INDEX product_name IF NOT EXISTS FOR (p:Product) ON (p.name);
+CREATE INDEX coverage_name IF NOT EXISTS FOR (c:Coverage) ON (c.name);
+CREATE INDEX coverage_category IF NOT EXISTS FOR (c:Coverage) ON (c.category);
+CREATE INDEX benefit_name IF NOT EXISTS FOR (b:Benefit) ON (b.name);
+CREATE INDEX benefit_type IF NOT EXISTS FOR (b:Benefit) ON (b.type);
 
--- 코드 검색용
-CREATE INDEX disease_code IF NOT EXISTS
-FOR (d:DiseaseCode) ON (d.code);
+-- 문서/코드 검색
+CREATE INDEX document_doc_type IF NOT EXISTS FOR (d:Document) ON (d.doc_type);
+CREATE INDEX disease_code_code IF NOT EXISTS FOR (dc:DiseaseCode) ON (dc.code);
+CREATE INDEX disease_code_type IF NOT EXISTS FOR (dc:DiseaseCode) ON (dc.type);
+
+-- 확장 노드 인덱스
+CREATE INDEX risk_event_event_type IF NOT EXISTS FOR (re:RiskEvent) ON (re.event_type);
+CREATE INDEX condition_condition_type IF NOT EXISTS FOR (cond:Condition) ON (cond.condition_type);
+CREATE INDEX exclusion_exclusion_type IF NOT EXISTS FOR (ex:Exclusion) ON (ex.exclusion_type);
+CREATE INDEX plan_product_id IF NOT EXISTS FOR (pl:Plan) ON (pl.product_id);
+CREATE INDEX plan_target_gender IF NOT EXISTS FOR (pl:Plan) ON (pl.target_gender);
 ```
 
 ---
@@ -179,25 +221,28 @@ python ingestion/graph_loader.py --sync-benefits
 
 ---
 
-## 6. 확장 계획
+## 6. 스키마 확장 이력
 
-### 6.1 미구현 관계
+### 6.1 구현된 확장 관계
 
-| 관계 | 시작 | 끝 | 우선순위 | 설명 |
-|------|------|-----|----------|------|
-| PARENT_OF | Coverage | Coverage | 높음 | 담보 계층 (52개 자식 담보) |
-| HAS_CONDITION | Coverage | Condition | 중간 | 보장 조건 |
-| HAS_EXCLUSION | Coverage | Exclusion | 중간 | 제외 사항 |
-| TRIGGERS | Benefit | RiskEvent | 낮음 | 보험사고 연결 |
+| 관계 | 시작 | 끝 | 상태 | 설명 |
+|------|------|-----|------|------|
+| PARENT_OF | Coverage | Coverage | ✅ 구현됨 | 담보 계층 (52개 자식 담보) |
+| HAS_CONDITION | Benefit | Condition | ✅ 구현됨 | 급부 조건 |
+| HAS_EXCLUSION | Coverage | Exclusion | ✅ 구현됨 | 제외 사항 |
+| TRIGGERS | Benefit | RiskEvent | ✅ 구현됨 | 보험사고 연결 |
+| FOR_PRODUCT | Plan | Product | ✅ 구현됨 | 가입설계 상품 연결 |
+| INCLUDES | Plan | Coverage | ✅ 구현됨 | 가입설계 담보 포함 |
+| FROM_DOCUMENT | Plan | Document | ✅ 구현됨 | 가입설계 출처 문서 |
 
-### 6.2 미구현 노드
+### 6.2 구현된 확장 노드
 
-| 노드 | 우선순위 | 설명 |
-|------|----------|------|
-| RiskEvent | 높음 | 보험사고 (진단, 사망 등) |
-| Condition | 중간 | 보장 조건 |
-| Exclusion | 중간 | 제외 사항 |
-| Plan | 낮음 | 가입설계서 |
+| 노드 | 상태 | 설명 |
+|------|------|------|
+| RiskEvent | ✅ 구현됨 | 보험사고 (진단, 사망 등) |
+| Condition | ✅ 구현됨 | 보장 조건 |
+| Exclusion | ✅ 구현됨 | 제외 사항 |
+| Plan | ✅ 구현됨 | 가입설계서 |
 
 ---
 
@@ -218,7 +263,7 @@ NEO4J_PASSWORD=changeme123
 
 | 구현 파일 | 설명 | 상태 |
 |-----------|------|------|
-| [`../neo4j/001_graph_schema.cypher`](../neo4j/001_graph_schema.cypher) | Neo4j DDL (제약조건, 인덱스) | ⬜ Phase 4.1에서 생성 예정 |
+| [`../neo4j/001_graph_schema.cypher`](../neo4j/001_graph_schema.cypher) | Neo4j DDL (제약조건, 인덱스) | ✅ 구현됨 |
 | [`../../ingestion/graph_loader.py`](../../ingestion/graph_loader.py) | PostgreSQL → Neo4j 동기화 스크립트 | ✅ 구현됨 |
 
 ### 설계 → 구현 흐름
@@ -238,13 +283,6 @@ GRAPH_SCHEMA.md (이 문서)
             ↓ 적용
     Neo4j 데이터베이스
 ```
-
-### 구현 우선순위 (Phase 4)
-
-| 태스크 | 파일 | 우선순위 |
-|--------|------|----------|
-| 4.1 | 001_graph_schema.cypher | 높음 |
-| 4.5 | graph_loader.py에 PARENT_OF 관계 추가 | 높음 |
 
 ---
 
