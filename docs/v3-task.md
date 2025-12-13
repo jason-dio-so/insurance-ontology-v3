@@ -216,63 +216,46 @@ volumes:
 | 2.5 | 초기화 스크립트  | ⬜| 2.4 |  | `init_neo4j.sh` | 
 | 2.6 | 스키마 검증 | ⬜ | 2.1, 2.5 | 테이블/노드 수 확인 |
 
-### 2.1 스키마 적용 명령어
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# 반드시 수정 - 아래 내용을 반드시 001_initial_schema.sql 에 반영 
-# ER_diagram.md 와 cross check 
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-```sql
--- risk_event: 보험금 지급 사유 (위험 이벤트)
-CREATE TABLE risk_event (
-    id SERIAL PRIMARY KEY,
-    event_type VARCHAR(50) NOT NULL,     -- 'diagnosis', 'surgery', 'hospitalization'
-    event_name VARCHAR(200) NOT NULL,
-    severity_level VARCHAR(20),          -- 'critical', 'major', 'minor'
-    icd_code_pattern VARCHAR(50)         -- 'C00-C97', 'K35.*'
-);
-
--- condition: 급여 지급 조건
-CREATE TABLE condition (
-    id SERIAL PRIMARY KEY,
-    benefit_id INTEGER REFERENCES benefit(id),
-    condition_type VARCHAR(50) NOT NULL, -- 'age', 'duration', 'count'
-    operator VARCHAR(10),                -- '>=', '<=', '=='
-    value VARCHAR(50),
-    unit VARCHAR(20)                     -- '세', '일', '회'
-);
-
--- exclusion: 면책/부지급 조건
-CREATE TABLE exclusion (
-    id SERIAL PRIMARY KEY,
-    coverage_id INTEGER REFERENCES coverage(id),
-    exclusion_type VARCHAR(50) NOT NULL, -- 'pre_existing', 'waiting_period', 'occupation'
-    description TEXT,
-    clause_reference VARCHAR(100)
-);
-```
+### 2.1-2.3 스키마 적용 (자동화 스크립트 사용)
 
 ```bash
-# PostgreSQL 스키마
+# 방법 1: 자동화 스크립트 (권장)
+./db_refactoring/scripts/init_db.sh
+
+# 방법 2: 수동 실행
 psql $POSTGRES_URL -f db_refactoring/postgres/001_initial_schema.sql
-
-# 시드 데이터
 psql $POSTGRES_URL -f db_refactoring/postgres/002_seed_data.sql
-
-# Alembic 스탬프
 cd db_refactoring && alembic stamp head
 ```
 
-### 2.5 init_neo4j.sh
+### 2.4-2.5 Neo4j 초기화
 
 ```bash
-#!/bin/bash
-# Neo4j 초기화 스크립트
+# Neo4j 스키마 적용
+./db_refactoring/scripts/init_neo4j.sh
 
-# 1. 스키마 적용
+# 또는 수동 실행
 cypher-shell -u neo4j -p $NEO4J_PASSWORD -f db_refactoring/neo4j/001_graph_schema.cypher
-
 ```
+
+### 2.6 스키마 검증
+
+```bash
+# PostgreSQL 스키마 검증
+python db_refactoring/scripts/verify_schema.py
+
+# 기대 결과: 19개 테이블, pgvector 확장 설치됨
+```
+
+### 사용 가능한 스크립트
+
+| 스크립트 | 설명 | 사용법 |
+|----------|------|--------|
+| `init_db.sh` | PostgreSQL 초기화 | `./init_db.sh [--drop-existing]` |
+| `init_neo4j.sh` | Neo4j 초기화 | `./init_neo4j.sh` |
+| `migrate.sh` | Alembic 래퍼 | `./migrate.sh upgrade/downgrade/history` |
+| `verify_schema.py` | 스키마 검증 | `python verify_schema.py [-v]` |
+| `verify_neo4j_sync.py` | PG↔Neo4j 동기화 검증 | `python verify_neo4j_sync.py` |
 
 ## Phase 3: 문서 변환 (Day 2-3)
 
@@ -400,16 +383,41 @@ python -m ingestion.load_disease_codes
 
 | ID | Task | 상태 | 선행 | 설명 |
 |----|------|------|------|------|
-| 6.1 | 전체 동기화 실행 | ⬜ |   -     | `graph_loader --all` |
-| 6.5 | `verify_neo4j_sync.py` 작성 | ⬜ | 6.3 | PG ↔ Neo4j 검증 |
-| 6.6 | 동기화 검증 실행 |⬜ | 6.5 | 엔티티 수 일치 확인 |
+| 6.1 | 전체 동기화 실행 | ⬜ | 5.4 | `graph_loader --all` |
+| 6.2 | 동기화 검증 실행 | ⬜ | 6.1 | `verify_neo4j_sync.py` |
 
 ### 6.1 전체 동기화 실행
 
 ```bash
-# 2. 데이터 동기화
+# 전체 엔티티 동기화 (Company, Product, Coverage, Benefit, Document 등)
 python -m ingestion.graph_loader --all
+
+# 개별 엔티티 동기화 (필요시)
+python -m ingestion.graph_loader --sync-companies
+python -m ingestion.graph_loader --sync-products
+python -m ingestion.graph_loader --sync-coverages
+python -m ingestion.graph_loader --sync-benefits
+python -m ingestion.graph_loader --sync-documents
+python -m ingestion.graph_loader --sync-disease-codes
 ```
+
+### 6.2 동기화 검증
+
+```bash
+# PostgreSQL ↔ Neo4j 엔티티 수 일치 검증
+python db_refactoring/scripts/verify_neo4j_sync.py
+```
+
+### 검증 기준
+
+| 엔티티 | PostgreSQL | Neo4j | 관계 |
+|--------|-----------|-------|------|
+| Company | 8 | 8 | HAS_PRODUCT |
+| Product | 8 | 8 | HAS_VARIANT, OFFERS |
+| Coverage | 363 | 363 | HAS_BENEFIT, PARENT_OF |
+| Benefit | 357 | 357 | - |
+| Document | 38 | 38 | HAS_DOCUMENT |
+| DiseaseCode | 131 | 131 | CONTAINS |
 
 ## Phase 7: 벡터 인덱스 및 pgvector 관리 (Day 5-6)
 
@@ -635,38 +643,62 @@ jobs:
 
 | ID | Task | 상태 | 선행 | 설명 |
 |----|------|------|------|------|
-| 12.1 | `risk_event` 테이블 설계 | ⬜ | 6.6 | event_type, severity_level, icd_pattern |
-| 12.2 | `condition` 테이블 설계 | ⬜ | 6.6 | 이미 존재하는 테이블 활용 |
-| 12.3 | `exclusion` 테이블 설계 | ⬜ | 6.6 | 이미 존재하는 테이블 활용 |
-| 12.4 | Alembic 마이그레이션 작성 | ⬜ | 12.1-3 | 새 테이블 마이그레이션 |
-| 12.5 | Neo4j RiskEvent 노드 추가 | ⬜ | 12.4 | TRIGGERS 관계 포함 |
-| 12.6 | Neo4j Condition 노드 추가 | ⬜ | 12.4 | HAS_CONDITION 관계 |
-| 12.7 | Neo4j Exclusion 노드 추가 | ⬜ | 12.4 | HAS_EXCLUSION 관계 |
-| 12.8 | graph_loader.py 확장 | ⬜ | 12.5-7 | sync_risk_events, sync_conditions, sync_exclusions |
-| 12.9 | (선택) Plan 노드 설계 | ⬜ | 12.8 | plan, plan_coverage 테이블, sync_plans() |
+| 12.1 | `risk_event` 테이블 (Alembic) | ⬜ | 6.2 | event_type, severity_level, icd_pattern |
+| 12.2 | `condition` 테이블 | ⬜ | - | 001_initial_schema.sql에 포함 |
+| 12.3 | `exclusion` 테이블 | ⬜ | - | 001_initial_schema.sql에 포함 |
+| 12.4 | `plan`, `plan_coverage` 테이블 (Alembic) | ⬜ | 12.1 | 가입설계 정보 저장 |
+| 12.5 | Neo4j 노드 추가 | ⬜ | 12.4 | RiskEvent, Condition, Exclusion, Plan |
+| 12.6 | graph_loader.py 확장 | ⬜ | 12.5 | sync 메서드 추가 |
 
-### 12.1-12.3 새 테이블 설계
-
-
-### 12.8 graph_loader.py 확장
+### 12.1, 12.4 Alembic 마이그레이션 적용
 
 ```bash
-# 새 옵션 추가
+# 마이그레이션 이력 확인
+./db_refactoring/scripts/migrate.sh history
+
+# 마이그레이션 적용 (온톨로지 확장 테이블)
+./db_refactoring/scripts/migrate.sh upgrade
+
+# 마이그레이션 파일 목록:
+# - dafe7c48833f_initial_schema_baseline.py (베이스라인)
+# - b3192d16d07b_add_ontology_extension_tables.py (risk_event, benefit_risk_event)
+# - e70cdd9c14e8_add_plan_tables.py (plan, plan_coverage)
+```
+
+### 12.5-12.6 Neo4j 스키마 및 동기화
+
+```bash
+# Neo4j 스키마 적용 (001_graph_schema.cypher에 포함됨)
+# - RiskEvent, Condition, Exclusion, Plan 노드 제약조건/인덱스
+
+# 온톨로지 확장 엔티티 동기화
 python -m ingestion.graph_loader --sync-risk-events
 python -m ingestion.graph_loader --sync-conditions
 python -m ingestion.graph_loader --sync-exclusions
+python -m ingestion.graph_loader --sync-plans
+```
+
+### 노드 및 관계 구조
+
+```
+Benefit --[TRIGGERS]--> RiskEvent
+Benefit --[HAS_CONDITION]--> Condition
+Coverage --[HAS_EXCLUSION]--> Exclusion
+Plan --[FOR_PRODUCT]--> Product
+Plan --[HAS_VARIANT]--> ProductVariant
+Plan --[INCLUDES {sum_insured, premium}]--> Coverage
+Plan --[FROM_DOCUMENT]--> Document
 ```
 
 ### 검증 기준
 
 | 항목 | 기대값 |
 |------|--------|
-| risk_event 테이블 | 생성됨 |
-| condition 테이블 | 생성됨 |
-| exclusion 테이블 | 생성됨 |
-| RiskEvent 노드 | Benefit과 TRIGGERS 관계 |
-| Condition 노드 | Benefit과 HAS_CONDITION 관계 |
-| Exclusion 노드 | Coverage와 HAS_EXCLUSION 관계 |
+| risk_event 테이블 | 생성됨 (Alembic) |
+| plan, plan_coverage 테이블 | 생성됨 (Alembic) |
+| condition, exclusion 테이블 | 생성됨 (초기 스키마) |
+| Neo4j 노드 타입 | 14개 (기존 8 + 신규 6) |
+| graph_loader CLI | --sync-risk-events, --sync-conditions, --sync-exclusions, --sync-plans |
 
 ---
 
@@ -714,7 +746,8 @@ python -m ingestion.graph_loader --sync-exclusions
 
 ---
 
-**문서 버전**: 1.0
+**문서 버전**: 1.1
 **최종 수정**: 2025-12-13
 **변경 이력**:
 - v1.0 (2025-12-13): 초기 작성
+- v1.1 (2025-12-13): task.md 작업 결과 반영 - 스크립트 사용법, 검증 기준, Alembic 마이그레이션 정보 추가
