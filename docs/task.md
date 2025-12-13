@@ -350,7 +350,7 @@ db_refactoring/docs/
 
 ---
 
-## Phase 3: 스크립트 및 검증 도구 (Day 6-7)
+## Phase 3: 스크립트 및 검증 도구 (Day 6-7) ✅ 완료
 
 **목표**: DB 초기화, 마이그레이션, 스키마 검증 스크립트 작성
 **선행 조건**: Phase 1.5a, Phase 2 완료
@@ -358,10 +358,10 @@ db_refactoring/docs/
 
 | ID | Task | 상태 | 선행 | 시작일 | 완료일 |
 |----|------|------|------|--------|--------|
-| 3.1 | `db/scripts/init_db.sh` 작성 | ⬜ PENDING | 2.7 | - | - |
-| 3.2 | `db/scripts/verify_schema.py` 작성 | ⬜ PENDING | 1.5a.5 | - | - |
-| 3.3 | `db/scripts/migrate.sh` 작성 | ⬜ PENDING | 2.7 | - | - |
-| 3.4 | 로컬 환경 전체 테스트 | ⬜ PENDING | 3.1, 3.2, 3.3 | - | - |
+| 3.1 | `db_refactoring/scripts/init_db.sh` 작성 | ✅ COMPLETED | 2.7 | 2025-12-13 | 2025-12-13 |
+| 3.2 | `db_refactoring/scripts/verify_schema.py` 작성 | ✅ COMPLETED | 1.5a.5 | 2025-12-13 | 2025-12-13 |
+| 3.3 | `db_refactoring/scripts/migrate.sh` 작성 | ✅ COMPLETED | 2.7 | 2025-12-13 | 2025-12-13 |
+| 3.4 | 로컬 환경 전체 테스트 | ✅ COMPLETED | 3.1, 3.2, 3.3 | 2025-12-13 | 2025-12-13 |
 
 ### Task 상세
 
@@ -614,6 +614,7 @@ db_refactoring/docs/
 | 2025-12-13 | 4.1-4.5 | Phase 4 완료 | Neo4j 스키마 관리: 001_graph_schema.cypher, init_neo4j.sh, verify_neo4j_sync.py, PARENT_OF 관계 추가 (52개) |
 | 2025-12-13 | 7.1-7.8 | Phase 7 완료 | 온톨로지 확장: risk_event 테이블, Alembic 마이그레이션, Neo4j 스키마 확장, graph_loader.py 확장 |
 | 2025-12-13 | 7.9 | Plan 노드 완료 | plan/plan_coverage 테이블, Neo4j Plan 노드/인덱스, sync_plans() 추가 |
+| 2025-12-13 | 3.1-3.4 | Phase 3 완료 | init_db.sh, verify_schema.py, migrate.sh 작성 및 테스트 |
 
 ---
 
@@ -651,7 +652,7 @@ db_refactoring/docs/
 | Phase 1.5b | Neo4j 설계 문서 | Day 2-3 | Phase 1 | ✅ 완료 |
 | Phase 2 | Alembic 도입 | Day 4-5 | Phase 1 | ✅ 완료 |
 | Phase 2.5 | DB 전환 (Test→Production) | Day 5 | Phase 2 | ✅ 완료 |
-| Phase 3 | 스크립트/검증 도구 | Day 6-7 | Phase 1.5a, 2 | ⬜ |
+| Phase 3 | 스크립트/검증 도구 | Day 6-7 | Phase 1.5a, 2 | ✅ 완료 |
 | Phase 4 | Neo4j 스키마 | Day 8-9 | Phase 1.5b | ✅ 완료 |
 | Phase 5 | pgvector 관리 | Day 10-11 | Phase 1 | ⬜ |
 | Phase 6 | CI/CD 통합 | Day 12 | Phase 3 | ⬜ |
