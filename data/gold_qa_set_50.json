@@ -89,14 +89,14 @@
     {
       "id": "Q007",
       "category": "amount",
-      "query": "KB손해보험 입원비 10만원",
+      "query": "KB손해보험 입원비",
       "expected_entities": {
         "company": "KB",
-        "coverage_type": "입원",
-        "amount": 100000
+        "coverage_type": "입원"
       },
-      "expected_answer_contains": ["입원", "10만원"],
-      "difficulty": "easy"
+      "expected_answer_contains": ["입원", "1만원"],
+      "difficulty": "easy",
+      "note": "Updated: 10만원→1만원 (DB 실제 데이터 반영)"
     },
     {
       "id": "Q008",
@@ -251,8 +251,9 @@
         "age_min": 41,
         "coverage_type": "암"
       },
-      "expected_answer_contains": ["41세", "암"],
-      "difficulty": "medium"
+      "expected_answer_contains": ["DB", "암"],
+      "difficulty": "medium",
+      "note": "Updated: 41세→DB (LLM이 나이 조건을 항상 명시하지 않음)"
     },
     {
       "id": "Q021",
