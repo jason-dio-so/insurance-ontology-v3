@@ -16,11 +16,37 @@ Usage:
 """
 
 import os
+import re
 import psycopg2
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 from ontology.nl_mapping import NLMapper
 from vector_index.factory import get_embedder
+
+
+# 키워드 부스팅을 위한 담보/보장 관련 핵심 키워드
+COVERAGE_BOOST_KEYWORDS = {
+    # 담보 유형
+    "수술": ["수술", "수술비", "수술담보"],
+    "입원": ["입원", "입원비", "입원일당", "입원담보"],
+    "진단": ["진단", "진단금", "진단비", "진단담보"],
+    "암": ["암", "암진단", "암수술", "암입원", "암치료", "유사암", "재진단암"],
+    "뇌": ["뇌", "뇌출혈", "뇌졸중", "뇌경색", "뇌혈관"],
+    "심장": ["심장", "심근경색", "급성심근경색", "심혈관"],
+    "사망": ["사망", "사망보험금", "사망담보"],
+    "후유장해": ["후유장해", "장해", "장해급여"],
+    "치료": ["치료", "치료비", "직접치료"],
+}
+
+# 금액 관련 키워드 패턴 (실제 금액 값이 있는 문서 감지)
+# "보험금" 같은 일반 단어는 제외 (예: "보험금을 지급하지 않는 사유"에서 오탐지)
+AMOUNT_PATTERNS = [
+    "가입금액:",  # proposal 문서의 금액 패턴
+    "가입금액 :",
+    "만원,",      # "1,000만원," 패턴
+    "천만원",     # "1천만원" 패턴
+    "백만원",     # "1백만원" 패턴
+]
 
 # Load environment variables from .env file
 load_dotenv()
@@ -47,6 +73,114 @@ class HybridRetriever:
         backend = embedder_backend or os.getenv("EMBEDDING_BACKEND", "openai")
         self.embedder = get_embedder(backend)
         self.nl_mapper = NLMapper(self.postgres_url)
+
+    def _extract_boost_keywords(self, query: str) -> List[str]:
+        """
+        쿼리에서 부스팅할 키워드 추출
+
+        Args:
+            query: 사용자 질의
+
+        Returns:
+            부스팅할 키워드 리스트
+        """
+        keywords = []
+        query_lower = query.lower()
+
+        # COVERAGE_BOOST_KEYWORDS에서 매칭되는 키워드 확장
+        for base_keyword, related_keywords in COVERAGE_BOOST_KEYWORDS.items():
+            if base_keyword in query_lower or base_keyword in query:
+                keywords.extend(related_keywords)
+
+        # NLMapper에서 추출한 담보/키워드도 추가
+        entities = self.nl_mapper.extract_entities(query)
+        if entities.get("coverages"):
+            keywords.extend(entities["coverages"])
+        if entities.get("keywords"):
+            keywords.extend(entities["keywords"])
+
+        # 중복 제거
+        return list(set(keywords))
+
+    def _calculate_keyword_boost(
+        self,
+        clause_text: str,
+        keywords: List[str],
+        boost_weight: float = 0.15,
+        require_amount: bool = False
+    ) -> float:
+        """
+        키워드 매칭 기반 부스트 점수 계산
+
+        Args:
+            clause_text: 검색된 문서 텍스트
+            keywords: 부스팅할 키워드 리스트
+            boost_weight: 키워드당 부스트 가중치
+            require_amount: True면 금액 정보가 있는 문서에 추가 부스트
+
+        Returns:
+            부스트 점수 (0.0 ~ max_boost)
+        """
+        if not keywords or not clause_text:
+            return 0.0
+
+        clause_lower = clause_text.lower()
+        matched_count = sum(1 for kw in keywords if kw in clause_lower or kw in clause_text)
+
+        # 기본 부스트 계산
+        max_boost = 0.3
+        boost = min(matched_count * boost_weight, max_boost)
+
+        # 금액 정보가 필요한 경우 추가 부스트
+        if require_amount:
+            # 실제 금액 패턴이 있는지 확인 (단순 "보험금" 단어가 아닌 "가입금액:", "1천만원" 등)
+            has_amount = any(pattern in clause_text for pattern in AMOUNT_PATTERNS)
+            if has_amount:
+                # 금액 정보가 있는 문서에 0.25 추가 부스트
+                boost += 0.25
+            else:
+                # 금액 정보가 없으면 부스트 감소
+                boost *= 0.3
+
+        return boost
+
+    def _rerank_with_keyword_boost(
+        self,
+        results: List[Dict[str, Any]],
+        keywords: List[str],
+        top_k: int,
+        require_amount: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        키워드 부스팅으로 검색 결과 재순위화
+
+        Args:
+            results: 벡터 검색 결과
+            keywords: 부스팅할 키워드
+            top_k: 반환할 결과 개수
+            require_amount: True면 금액 정보가 있는 문서 우선
+
+        Returns:
+            재순위화된 결과
+        """
+        if not keywords or not results:
+            return results[:top_k]
+
+        # 각 결과에 final_score 계산
+        for result in results:
+            keyword_boost = self._calculate_keyword_boost(
+                result.get("clause_text", ""),
+                keywords,
+                require_amount=require_amount
+            )
+            # Final Score = Vector Similarity + Keyword Boost
+            result["keyword_boost"] = keyword_boost
+            result["final_score"] = result.get("similarity", 0) + keyword_boost
+
+        # final_score로 재정렬
+        reranked = sorted(results, key=lambda x: x.get("final_score", 0), reverse=True)
+
+        return reranked[:top_k]
 
     def search(
         self,
@@ -79,6 +213,9 @@ class HybridRetriever:
         # 1. 엔티티 추출
         entities = self.nl_mapper.extract_entities(query)
 
+        # 1.5. 키워드 부스팅을 위한 키워드 추출
+        boost_keywords = self._extract_boost_keywords(query)
+
         # 2. 필터 구성
         search_filters = filters or {}
 
@@ -94,17 +231,35 @@ class HybridRetriever:
         # if entities["filters"].get("coverage_ids"):
         #     search_filters.setdefault("coverage_ids", entities["filters"]["coverage_ids"])
 
-        # ⭐ Coverage/Amount query detection: prioritize proposal + table_row
-        # Proposal documents have precise benefit amounts and coverage details in table_row clauses
-        # Examples: "암 진단금", "뇌출혈", "500만원 수술비"
-        coverage_keywords = ["진단금", "진단비", "수술비", "입원비", "치료비", "보장금", "보험금", "보장액"]
+        # ⭐ Coverage/Amount query detection
+        # NOTE: doc_type 필터 제거 - 키워드 부스팅으로 관련 문서 상위 노출
+        # 기존: proposal + table_row 필터 → 약관(terms)의 상세 담보 정보 누락
+        # 개선: 전체 검색 후 키워드 부스팅으로 재순위화
+        coverage_keywords = [
+            "진단금", "진단비", "수술비", "입원비", "치료비", "보장금", "보험금", "보장액",
+            # 담보 유형 키워드 추가 (이 담보들은 보통 금액 정보가 필요함)
+            "암", "암진단", "뇌출혈", "뇌졸중", "심근경색", "골절", "수술", "입원",
+            "유사암", "재진단암", "항암", "뇌경색", "뇌혈관", "심장", "후유장해"
+        ]
         has_coverage_query = (
             entities.get("coverages") or  # Coverage extracted by NL mapper
             entities["filters"].get("amount") or  # Amount filter present
             any(kw in query for kw in coverage_keywords)  # Coverage keyword in query
         )
 
-        if has_coverage_query:
+        # 금액 정보가 필요한 쿼리인지 판단
+        # - 명시적으로 금액을 묻는 쿼리 (예: "얼마", "보장금액", "N만원")
+        # - 담보 유형 쿼리 (암진단, 뇌출혈 등) - 대부분 금액 정보 필요
+        amount_query_keywords = ["얼마", "금액", "만원", "천원", "보장금", "보험금"]
+        is_amount_query = (
+            entities["filters"].get("amount") or
+            any(kw in query for kw in amount_query_keywords) or
+            has_coverage_query  # 담보 관련 쿼리는 금액 정보 우선
+        )
+
+        # doc_type/clause_type 필터는 키워드 부스팅이 없을 때만 적용
+        # 키워드 부스팅이 있으면 전체 검색 후 재순위화로 관련 문서 상위 노출
+        if has_coverage_query and not boost_keywords:
             # Prioritize proposal documents with table_row clauses for accurate benefit info
             search_filters.setdefault("doc_type", "proposal")
             search_filters.setdefault("clause_type", "table_row")
@@ -122,11 +277,32 @@ class HybridRetriever:
         query_embedding = self.embedder.embed_query(query)
 
         # 4. 필터링된 벡터 검색 실행 (with fallback for zero results)
+        # 키워드 부스팅을 위해 3배 더 많은 후보 검색 후 re-ranking
+        search_top_k = max(top_k * 3, 30)  # 최소 30개 후보
+
         results = self._filtered_vector_search(
             query_embedding=query_embedding,
             filters=search_filters,
-            top_k=top_k
+            top_k=search_top_k
         )
+
+        # ⭐ Amount 쿼리일 때 proposal 문서 별도 검색하여 병합
+        # proposal 문서는 금액 정보가 있지만 벡터 유사도가 낮을 수 있음
+        if is_amount_query and search_filters.get("company_id"):
+            proposal_filters = {
+                "company_id": search_filters["company_id"],
+                "doc_type": "proposal"
+            }
+            proposal_results = self._filtered_vector_search(
+                query_embedding=query_embedding,
+                filters=proposal_filters,
+                top_k=search_top_k
+            )
+            # 기존 결과에 proposal 결과 병합 (중복 제거)
+            existing_ids = {r["clause_id"] for r in results}
+            for pr in proposal_results:
+                if pr["clause_id"] not in existing_ids:
+                    results.append(pr)
 
         # ⭐ Fallback search for coverage queries with zero results
         # If proposal + table_row filter is too restrictive, try progressively broader searches
@@ -138,7 +314,7 @@ class HybridRetriever:
             results = self._filtered_vector_search(
                 query_embedding=query_embedding,
                 filters=fallback_filters,
-                top_k=top_k
+                top_k=search_top_k
             )
 
             # Tier 2: Try business_spec with table_row (more detailed than summary)
@@ -148,7 +324,7 @@ class HybridRetriever:
                 results = self._filtered_vector_search(
                     query_embedding=query_embedding,
                     filters=fallback_filters,
-                    top_k=top_k
+                    top_k=search_top_k
                 )
 
             # Tier 3: Try business_spec without clause_type
@@ -160,7 +336,7 @@ class HybridRetriever:
                 results = self._filtered_vector_search(
                     query_embedding=query_embedding,
                     filters=fallback_filters,
-                    top_k=top_k
+                    top_k=search_top_k
                 )
 
             # Tier 4: Try terms document (most comprehensive coverage info)
@@ -172,7 +348,7 @@ class HybridRetriever:
                 results = self._filtered_vector_search(
                     query_embedding=query_embedding,
                     filters=fallback_filters,
-                    top_k=top_k
+                    top_k=search_top_k
                 )
 
             # Tier 5: Remove doc_type filter entirely (last resort)
@@ -185,8 +361,14 @@ class HybridRetriever:
                 results = self._filtered_vector_search(
                     query_embedding=query_embedding,
                     filters=fallback_filters,
-                    top_k=top_k
+                    top_k=search_top_k
                 )
+
+        # 5. 키워드 부스팅으로 재순위화 (금액 쿼리면 금액 정보 있는 문서 우선)
+        results = self._rerank_with_keyword_boost(
+            results, boost_keywords, top_k,
+            require_amount=is_amount_query
+        )
 
         return results
 
@@ -208,6 +390,10 @@ class HybridRetriever:
             검색 결과 리스트
         """
         with self.pg_conn.cursor() as cur:
+            # HNSW 인덱스 ef_search 설정 (필터+벡터검색 시 충분한 후보 탐색)
+            # 기본값 40은 필터 적용 시 결과 0 발생 가능 → 200으로 증가
+            cur.execute("SET hnsw.ef_search = 200")
+
             # 기본 SELECT
             query_parts = ["""
                 SELECT
