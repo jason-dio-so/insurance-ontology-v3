@@ -127,20 +127,24 @@ class HybridRetriever:
         clause_lower = clause_text.lower()
         matched_count = sum(1 for kw in keywords if kw in clause_lower or kw in clause_text)
 
-        # 기본 부스트 계산
-        max_boost = 0.3
+        # 기본 부스트 계산 - 키워드 매칭이 가장 중요
+        max_boost = 0.5  # 최대 부스트 증가
         boost = min(matched_count * boost_weight, max_boost)
 
         # 금액 정보가 필요한 경우 추가 부스트
         if require_amount:
-            # 실제 금액 패턴이 있는지 확인 (단순 "보험금" 단어가 아닌 "가입금액:", "1천만원" 등)
             has_amount = any(pattern in clause_text for pattern in AMOUNT_PATTERNS)
             if has_amount:
-                # 금액 정보가 있는 문서에 0.25 추가 부스트
-                boost += 0.25
+                # ⭐ 키워드 매칭이 있을 때만 금액 부스트 적용
+                # 키워드 매칭 없이 금액만 있으면 부스트 없음
+                if matched_count > 0:
+                    boost += 0.15  # 키워드 + 금액 조합 부스트
+                else:
+                    # 금액만 있고 키워드 없으면 소량 부스트
+                    boost = 0.05
             else:
-                # 금액 정보가 없으면 부스트 감소
-                boost *= 0.3
+                # 금액 정보가 없어도 키워드 매칭은 유지
+                pass  # boost 그대로 유지
 
         return boost
 
@@ -286,23 +290,25 @@ class HybridRetriever:
             top_k=search_top_k
         )
 
-        # ⭐ Amount 쿼리일 때 proposal 문서 별도 검색하여 병합
-        # proposal 문서는 금액 정보가 있지만 벡터 유사도가 낮을 수 있음
+        # ⭐ Amount 쿼리일 때 여러 doc_type에서 검색하여 병합
+        # proposal뿐 아니라 terms, product_summary 등에도 금액 정보가 있을 수 있음
         if is_amount_query and search_filters.get("company_id"):
-            proposal_filters = {
-                "company_id": search_filters["company_id"],
-                "doc_type": "proposal"
-            }
-            proposal_results = self._filtered_vector_search(
-                query_embedding=query_embedding,
-                filters=proposal_filters,
-                top_k=search_top_k
-            )
-            # 기존 결과에 proposal 결과 병합 (중복 제거)
-            existing_ids = {r["clause_id"] for r in results}
-            for pr in proposal_results:
-                if pr["clause_id"] not in existing_ids:
-                    results.append(pr)
+            # proposal 문서 검색
+            for doc_type in ["proposal", "product_summary", "terms"]:
+                type_filters = {
+                    "company_id": search_filters["company_id"],
+                    "doc_type": doc_type
+                }
+                type_results = self._filtered_vector_search(
+                    query_embedding=query_embedding,
+                    filters=type_filters,
+                    top_k=search_top_k
+                )
+                # 기존 결과에 병합 (중복 제거)
+                existing_ids = {r["clause_id"] for r in results}
+                for pr in type_results:
+                    if pr["clause_id"] not in existing_ids:
+                        results.append(pr)
 
         # ⭐ Fallback search for coverage queries with zero results
         # If proposal + table_row filter is too restrictive, try progressively broader searches
