@@ -345,7 +345,7 @@ db_refactoring/docs/
 
 | Task | 명령어 | 설명 |
 |------|--------|------|
-| 임베딩 재생성 | `python -m vector_index.build_index` | 1.8GB, ~30분 소요 |
+| 임베딩 재생성 | `python -m vector_index.build_index` | ✅ 완료 (2025-12-14) |
 | QA 테스트 | `python scripts/evaluate_qa.py` | 86% 정확도 목표 |
 
 ---
@@ -448,7 +448,7 @@ db_refactoring/docs/
 
 ---
 
-## Phase 5: pgvector 인덱스 관리 (Day 10-11)
+## Phase 5: pgvector 인덱스 관리 (Day 10-11) ✅ 완료
 
 **목표**: pgvector 인덱스 설정 문서화 및 성능 모니터링 도구 작성
 **선행 조건**: Phase 1 완료 (독립적 진행 가능)
@@ -456,11 +456,11 @@ db_refactoring/docs/
 
 | ID | Task | 상태 | 선행 | 시작일 | 완료일 |
 |----|------|------|------|--------|--------|
-| 5.1 | `db_refactoring/postgres/003_pgvector_setup.sql` 생성 | ⬜ PENDING | 1.5 | - | - |
-| 5.2 | HNSW 인덱스 파라미터 가이드 문서화 | ⬜ PENDING | 5.1 | - | - |
-| 5.3 | `db_refactoring/scripts/monitor_vector_search.py` 작성 | ⬜ PENDING | 5.1 | - | - |
-| 5.4 | 임베딩 모델 변경 마이그레이션 템플릿 작성 | ⬜ PENDING | 5.2 | - | - |
-| 5.5 | 벡터 검색 벤치마크 실행 및 기준선 수립 | ⬜ PENDING | 5.3 | - | - |
+| 5.1 | `db_refactoring/postgres/003_pgvector_setup.sql` 생성 | ✅ COMPLETED | 1.5 | 2025-12-14 | 2025-12-14 |
+| 5.2 | HNSW 인덱스 파라미터 가이드 문서화 | ✅ COMPLETED | 5.1 | 2025-12-14 | 2025-12-14 |
+| 5.3 | `db_refactoring/scripts/monitor_vector_search.py` 작성 | ✅ COMPLETED | 5.1 | 2025-12-14 | 2025-12-14 |
+| 5.4 | 임베딩 모델 변경 마이그레이션 템플릿 작성 | ✅ COMPLETED | 5.2 | 2025-12-14 | 2025-12-14 |
+| 5.5 | 벡터 검색 벤치마크 실행 및 기준선 수립 | ✅ COMPLETED | 5.3 | 2025-12-14 | 2025-12-14 |
 
 ### Task 상세
 
@@ -511,7 +511,7 @@ db_refactoring/docs/
 |----|------|------|------|--------|--------|
 | 6.1 | `.github/workflows/schema-check.yml` 작성 | ⬜ PENDING | 3.4 | - | - |
 | 6.2 | PR 테스트 (자동 검증 확인) | ⬜ PENDING | 6.1 | - | - |
-| 6.3 | 마이그레이션 가이드 문서 작성 | ⬜ PENDING | 6.2 | - | - |
+| 6.3 | 마이그레이션 가이드 문서 작성 | ✅ COMPLETED | 6.2 | 2025-12-14 | 2025-12-14 |
 
 ### Task 상세
 
@@ -597,6 +597,52 @@ db_refactoring/docs/
 
 ---
 
+## Phase 8: 검색 시스템 (Day 16-17)
+
+**목표**: 하이브리드 검색 시스템 구축 및 테스트
+**선행 조건**: Phase 5 완료 (임베딩 생성)
+**후행 작업**: Phase 9 (API 개발)
+
+| ID | Task | 상태 | 선행 | 시작일 | 완료일 |
+|----|------|------|------|--------|--------|
+| 8.1 | NL Mapper 테스트 | ✅ COMPLETED | 5.5 | 2025-12-14 | 2025-12-14 |
+| 8.2 | Vector Retriever 테스트 | ✅ COMPLETED | 5.5 | 2025-12-14 | 2025-12-14 |
+| 8.3 | Hybrid Retriever 테스트 | ✅ COMPLETED | 8.1, 8.2 | 2025-12-14 | 2025-12-14 |
+| 8.4 | Context Assembly 테스트 | ✅ COMPLETED | 8.3 | 2025-12-14 | 2025-12-14 |
+
+### Task 상세
+
+#### 8.1 NL Mapper 테스트
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | 자연어 → 엔티티 매핑 테스트 |
+| 완료 기준 | 회사명, 상품명, 담보명 인식 정상 동작 |
+
+#### 8.2 Vector Retriever 테스트
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | 벡터 검색 동작 확인 |
+| 완료 기준 | 유사 조항 검색 정상 동작 |
+
+#### 8.3 Hybrid Retriever 테스트
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | 통합 검색 (NL + Vector) 테스트 |
+| 테스트 코드 | `retrieval.hybrid_retriever.HybridRetriever` |
+| 완료 기준 | 복합 쿼리 ("삼성 암진단비 3000만원") 정상 동작 |
+
+#### 8.4 Context Assembly 테스트
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | LLM 컨텍스트 생성 테스트 |
+| 완료 기준 | 검색 결과 → 프롬프트 조립 정상 동작 |
+
+---
+
 ## 진행 이력
 
 | 날짜 | Task ID | 변경 내용 | 비고 |
@@ -615,6 +661,10 @@ db_refactoring/docs/
 | 2025-12-13 | 7.1-7.8 | Phase 7 완료 | 온톨로지 확장: risk_event 테이블, Alembic 마이그레이션, Neo4j 스키마 확장, graph_loader.py 확장 |
 | 2025-12-13 | 7.9 | Plan 노드 완료 | plan/plan_coverage 테이블, Neo4j Plan 노드/인덱스, sync_plans() 추가 |
 | 2025-12-13 | 3.1-3.4 | Phase 3 완료 | init_db.sh, verify_schema.py, migrate.sh 작성 및 테스트 |
+| 2025-12-14 | 5.1-5.5 | Phase 5 완료 | 003_pgvector_setup.sql, PGVECTOR_GUIDE.md, monitor_vector_search.py, 마이그레이션 템플릿 |
+| 2025-12-14 | - | 임베딩 생성 완료 | OpenAI text-embedding-3-small, 134,844건, 1.8GB |
+| 2025-12-14 | 6.3 | MIGRATION_GUIDE.md 작성 | Alembic 마이그레이션 가이드 |
+| 2025-12-14 | 8.1-8.4 | Phase 8 완료 | NL Mapper, Vector/Hybrid Retriever, Context Assembly 테스트 완료, retriever.py 1536차원 수정 |
 
 ---
 
@@ -654,9 +704,10 @@ db_refactoring/docs/
 | Phase 2.5 | DB 전환 (Test→Production) | Day 5 | Phase 2 | ✅ 완료 |
 | Phase 3 | 스크립트/검증 도구 | Day 6-7 | Phase 1.5a, 2 | ✅ 완료 |
 | Phase 4 | Neo4j 스키마 | Day 8-9 | Phase 1.5b | ✅ 완료 |
-| Phase 5 | pgvector 관리 | Day 10-11 | Phase 1 | ⬜ |
+| Phase 5 | pgvector 관리 | Day 10-11 | Phase 1 | ✅ 완료 |
 | Phase 6 | CI/CD 통합 | Day 12 | Phase 3 | ⬜ |
 | Phase 7 | 온톨로지 확장 | Day 13-15 | Phase 4 | ✅ 완료 |
+| Phase 8 | 검색 시스템 | Day 16-17 | Phase 5 | ✅ 완료 |
 
 ---
 

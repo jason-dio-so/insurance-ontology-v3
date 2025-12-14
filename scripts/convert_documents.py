@@ -167,7 +167,7 @@ def main():
     )
     parser.add_argument(
         "--output-dir",
-        default="data/converted",
+        default="data/converted_v2",
         help="변환 결과 출력 디렉토리"
     )
     parser.add_argument(

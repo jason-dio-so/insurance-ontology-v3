@@ -98,8 +98,30 @@ class DocumentIngestionPipeline:
                 if text_file.exists():
                     with open(text_file, 'r', encoding='utf-8') as f:
                         data = json.load(f)
-                        # Return pages array
-                        return data.get('pages', [])
+                        pages = data.get('pages', [])
+
+                        # Load actual table data from tables/ directory
+                        tables_dir = doc_dir / 'tables'
+                        if tables_dir.exists():
+                            # Build table cache
+                            table_cache = {}
+                            for table_file in tables_dir.glob('*.json'):
+                                table_id = table_file.stem  # e.g., "table_004_01"
+                                with open(table_file, 'r', encoding='utf-8') as tf:
+                                    table_cache[table_id] = json.load(tf)
+
+                            # Replace table references with actual data
+                            for page in pages:
+                                table_refs = page.get('tables', [])
+                                if table_refs and isinstance(table_refs[0], str):
+                                    # table_refs contains IDs like ["table_004_01", ...]
+                                    resolved_tables = []
+                                    for ref in table_refs:
+                                        if ref in table_cache:
+                                            resolved_tables.append(table_cache[ref])
+                                    page['tables'] = resolved_tables
+
+                        return pages
 
         logger.warning(f"Converted document not found: {document_id}")
         return None

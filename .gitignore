@@ -34,15 +34,16 @@ examples/  # PDF documents (large files)
 *.bak
 *.swp
 
+# Office documents
+*.docx
+*.xlsx
+
 # Logs (except production logs)
 *.log
 !evaluation/evaluation_v5_fixed.log
 
-# Vector index backend (Qdrant)
-data/qdrant/
-
-# Checkpoints
-data/checkpoints/
+# Data directory (converted PDFs, vectors, checkpoints)
+data/
 
 # Node modules (if any frontend)
 node_modules/

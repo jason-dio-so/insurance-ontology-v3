@@ -79,29 +79,44 @@ class HybridRetriever:
 
         # 2. 벡터 검색 (메타데이터 필터링 포함)
         with self.pg_conn.cursor() as cur:
-            # search_similar_clauses 함수 호출
-            cur.execute("""
+            # 임베딩을 문자열로 변환 (psycopg2에서 vector로 캐스팅)
+            embedding_str = str(list(query_embedding))
+
+            # 동적 필터 조건 생성
+            conditions = ["ce.embedding IS NOT NULL"]
+            filter_params = []
+
+            if company_id:
+                conditions.append("doc.company_id = %s")
+                filter_params.append(company_id)
+            if product_id:
+                conditions.append("doc.product_id = %s")
+                filter_params.append(product_id)
+            if doc_type:
+                conditions.append("doc.doc_type = %s")
+                filter_params.append(doc_type)
+
+            where_clause = " AND ".join(conditions)
+            # 파라미터 순서: SELECT용 embedding, WHERE 필터들, ORDER BY용 embedding, LIMIT
+            params = [embedding_str] + filter_params + [embedding_str, top_k]
+
+            cur.execute(f"""
                 SELECT
-                    clause_id,
-                    similarity,
-                    clause_text,
-                    company_name,
-                    product_name,
-                    doc_type
-                FROM search_similar_clauses(
-                    %s::vector(384),
-                    %s,
-                    %s,
-                    %s,
-                    %s
-                )
-            """, (
-                query_embedding,
-                top_k,
-                company_id,
-                product_id,
-                doc_type
-            ))
+                    dc.id AS clause_id,
+                    1 - (ce.embedding <=> %s::vector(1536)) AS similarity,
+                    dc.clause_text,
+                    c.company_name,
+                    p.product_name,
+                    doc.doc_type
+                FROM clause_embedding ce
+                JOIN document_clause dc ON dc.id = ce.clause_id
+                JOIN document doc ON dc.document_id = doc.id
+                LEFT JOIN company c ON doc.company_id = c.id
+                LEFT JOIN product p ON doc.product_id = p.id
+                WHERE {where_clause}
+                ORDER BY ce.embedding <=> %s::vector(1536)
+                LIMIT %s
+            """, params)
 
             results = []
             for row in cur.fetchall():
@@ -135,27 +150,28 @@ class HybridRetriever:
         """
         # 1. 쿼리 임베딩
         query_embedding = self.embedder.embed_query(query)
+        embedding_str = str(list(query_embedding))
 
         # 2. 담보 관련 조항만 검색
         with self.pg_conn.cursor() as cur:
             cur.execute("""
                 SELECT
                     dc.id AS clause_id,
-                    1 - (ce.embedding <=> %s::vector(384)) AS similarity,
+                    1 - (ce.embedding <=> %s::vector(1536)) AS similarity,
                     dc.clause_text,
-                    c.name AS company_name,
-                    p.name AS product_name,
+                    c.company_name,
+                    p.product_name,
                     doc.doc_type
                 FROM clause_coverage cc
                 JOIN document_clause dc ON cc.clause_id = dc.id
                 JOIN clause_embedding ce ON dc.id = ce.clause_id
                 JOIN document doc ON dc.document_id = doc.id
-                LEFT JOIN company c ON doc.company_id = c.company_id
-                LEFT JOIN product p ON doc.product_id = p.product_id
+                LEFT JOIN company c ON doc.company_id = c.id
+                LEFT JOIN product p ON doc.product_id = p.id
                 WHERE cc.coverage_id = %s
-                ORDER BY ce.embedding <=> %s::vector(384)
+                ORDER BY ce.embedding <=> %s::vector(1536)
                 LIMIT %s
-            """, (query_embedding, coverage_id, query_embedding, top_k))
+            """, (embedding_str, coverage_id, embedding_str, top_k))
 
             results = []
             for row in cur.fetchall():

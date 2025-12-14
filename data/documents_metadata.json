@@ -10,7 +10,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": "female",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_사업방법서(여).pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_사업방법서(여).pdf",
     "attributes": {
       "target_gender": "female"
     },
@@ -27,7 +27,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": "female",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_가입설계서(여)_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_가입설계서(여)_2511.pdf",
     "attributes": {
       "target_gender": "female"
     },
@@ -44,7 +44,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": "male",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_가입설계서(남)_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_가입설계서(남)_2511.pdf",
     "attributes": {
       "target_gender": "male"
     },
@@ -61,7 +61,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": "male",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_상품요약서(남).pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_상품요약서(남).pdf",
     "attributes": {
       "target_gender": "male"
     },
@@ -78,7 +78,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": "male",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_사업방법서(남).pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_사업방법서(남).pdf",
     "attributes": {
       "target_gender": "male"
     },
@@ -95,7 +95,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": "male",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_약관(남).pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_약관(남).pdf",
     "attributes": {
       "target_gender": "male"
     },
@@ -112,7 +112,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": "female",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_상품요약서(여).pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_상품요약서(여).pdf",
     "attributes": {
       "target_gender": "female"
     },
@@ -129,7 +129,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": "female",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/lotte/롯데_약관(여).pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/lotte/롯데_약관(여).pdf",
     "attributes": {
       "target_gender": "female"
     },
@@ -146,7 +146,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hanwha/한화_가입설계서_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hanwha/한화_가입설계서_2511.pdf",
     "attributes": null,
     "total_pages": 25
   },
@@ -161,7 +161,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hanwha/한화_사업방법서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hanwha/한화_사업방법서.pdf",
     "attributes": null,
     "total_pages": 341
   },
@@ -176,7 +176,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hanwha/한화_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hanwha/한화_상품요약서.pdf",
     "attributes": null,
     "total_pages": 96
   },
@@ -191,7 +191,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hanwha/한화_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hanwha/한화_약관.pdf",
     "attributes": null,
     "total_pages": 1065
   },
@@ -206,7 +206,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/kb/KB_사업방법서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/kb/KB_사업방법서.pdf",
     "attributes": null,
     "total_pages": 91
   },
@@ -221,7 +221,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/kb/KB_가입설계서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/kb/KB_가입설계서.pdf",
     "attributes": null,
     "total_pages": 15
   },
@@ -236,7 +236,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/kb/KB_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/kb/KB_약관.pdf",
     "attributes": null,
     "total_pages": 970
   },
@@ -251,7 +251,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/kb/KB_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/kb/KB_상품요약서.pdf",
     "attributes": null,
     "total_pages": 90
   },
@@ -266,7 +266,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/heungkuk/흥국_사업방법서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/heungkuk/흥국_사업방법서.pdf",
     "attributes": null,
     "total_pages": 80
   },
@@ -281,7 +281,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/heungkuk/흥국_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/heungkuk/흥국_약관.pdf",
     "attributes": null,
     "total_pages": 1352
   },
@@ -296,7 +296,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/heungkuk/흥국_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/heungkuk/흥국_상품요약서.pdf",
     "attributes": null,
     "total_pages": 86
   },
@@ -311,7 +311,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/heungkuk/흥국_가입설계서_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/heungkuk/흥국_가입설계서_2511.pdf",
     "attributes": null,
     "total_pages": 18
   },
@@ -326,7 +326,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/meritz/메리츠_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/meritz/메리츠_상품요약서.pdf",
     "attributes": null,
     "total_pages": 167
   },
@@ -341,7 +341,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/meritz/메리츠_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/meritz/메리츠_약관.pdf",
     "attributes": null,
     "total_pages": 1875
   },
@@ -356,7 +356,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업설명서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/meritz/메리츠_사업설명서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/meritz/메리츠_사업설명서.pdf",
     "attributes": null,
     "total_pages": 452
   },
@@ -371,7 +371,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/meritz/메리츠_가입설계서_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/meritz/메리츠_가입설계서_2511.pdf",
     "attributes": null,
     "total_pages": 15
   },
@@ -386,7 +386,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hyundai/현대_사업방법서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hyundai/현대_사업방법서.pdf",
     "attributes": null,
     "total_pages": 142
   },
@@ -401,7 +401,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hyundai/현대_가입설계서_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hyundai/현대_가입설계서_2511.pdf",
     "attributes": null,
     "total_pages": 11
   },
@@ -416,7 +416,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hyundai/현대_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hyundai/현대_상품요약서.pdf",
     "attributes": null,
     "total_pages": 111
   },
@@ -431,7 +431,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/hyundai/현대_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/hyundai/현대_약관.pdf",
     "attributes": null,
     "total_pages": 1288
   },
@@ -446,7 +446,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/samsung/삼성_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/samsung/삼성_약관.pdf",
     "attributes": null,
     "total_pages": 1561
   },
@@ -461,7 +461,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/samsung/삼성_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/samsung/삼성_상품요약서.pdf",
     "attributes": null,
     "total_pages": 172
   },
@@ -476,7 +476,7 @@
     "doc_type": "easy_summary",
     "doc_type_kr": "쉬운요약서",
     "doc_subtype": "easy_summary",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/samsung/삼성_쉬운요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/samsung/삼성_쉬운요약서.pdf",
     "attributes": null,
     "total_pages": 21
   },
@@ -491,7 +491,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/samsung/삼성_가입설계서_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/samsung/삼성_가입설계서_2511.pdf",
     "attributes": null,
     "total_pages": 13
   },
@@ -506,7 +506,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업설명서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/samsung/삼성_사업설명서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/samsung/삼성_사업설명서.pdf",
     "attributes": null,
     "total_pages": 149
   },
@@ -521,7 +521,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": "age_40_under",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/db/DB_가입설계서(40세이하)_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/db/DB_가입설계서(40세이하)_2511.pdf",
     "attributes": {
       "target_age_range": "≤40"
     },
@@ -538,7 +538,7 @@
     "doc_type": "product_summary",
     "doc_type_kr": "상품요약서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/db/DB_상품요약서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/db/DB_상품요약서.pdf",
     "attributes": null,
     "total_pages": 114
   },
@@ -553,7 +553,7 @@
     "doc_type": "proposal",
     "doc_type_kr": "가입설계서",
     "doc_subtype": "age_41_over",
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/db/DB_가입설계서(41세이상)_2511.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/db/DB_가입설계서(41세이상)_2511.pdf",
     "attributes": {
       "target_age_range": "≥41"
     },
@@ -570,7 +570,7 @@
     "doc_type": "business_spec",
     "doc_type_kr": "사업방법서",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/db/DB_사업방법서.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/db/DB_사업방법서.pdf",
     "attributes": null,
     "total_pages": 110
   },
@@ -585,7 +585,7 @@
     "doc_type": "terms",
     "doc_type_kr": "약관",
     "doc_subtype": null,
-    "file_path": "/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/examples/db/DB_약관.pdf",
+    "file_path": "/Users/cheollee/insurance-ontology-v3/examples/examples/db/DB_약관.pdf",
     "attributes": null,
     "total_pages": 1192
   }

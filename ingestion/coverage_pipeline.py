@@ -59,9 +59,9 @@ class CoveragePipeline:
                 p.id as product_id,
                 d.doc_type,
                 dc.structured_data->>'coverage_name' as coverage_name,
-                dc.structured_data->>'coverage_amount_text' as coverage_amount_text,
+                dc.structured_data->>'coverage_amount' as coverage_amount,
                 dc.structured_data->>'premium' as premium,
-                dc.structured_data->>'premium_frequency' as premium_frequency
+                dc.structured_data->>'period' as period
             FROM document_clause dc
             JOIN document d ON dc.document_id = d.id
             JOIN product p ON d.product_id = p.id
@@ -274,12 +274,19 @@ class CoveragePipeline:
             result['is_valid'] = False
             return result
 
-        name = raw_name.strip()
+        # Remove newlines and extra whitespace (PDF parsing artifact)
+        name = ' '.join(raw_name.split()).strip()
 
-        # Pattern 1: Period-only data ("10년", "15년", "20년")
-        if re.match(r'^(5|10|15|20|30)년$', name):
+        # Pattern 1: Period-only data ("10년", "15년", "20년", "3개월", "6개월")
+        if re.match(r'^(\d+)(년|개월)$', name):
             result['is_valid'] = False
             result['coverage_period'] = name
+            return result
+
+        # Pattern 1b: Invalid short generic names
+        invalid_names = {'검사', '치료', '수술', '진단', '보험', '담보', '특약', '배상책'}
+        if name in invalid_names:
+            result['is_valid'] = False
             return result
 
         # Pattern 2: Clause number prefix ("119 뇌졸중진단비", "121 뇌출혈진단비")

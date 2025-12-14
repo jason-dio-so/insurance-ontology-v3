@@ -30,9 +30,6 @@
 ```
 db_refactoring/
 ├── README.md                    # 이 파일 (격리 정책 문서)
-├── docker/
-│   ├── docker-compose.yml       # 테스트 DB 환경
-│   └── .env                     # Docker 환경변수
 ├── postgres/
 │   ├── 001_initial_schema.sql   # 추출된 스키마
 │   ├── 002_seed_data.sql        # 시드 데이터
@@ -86,8 +83,8 @@ NEO4J_TEST_URI=bolt://127.0.0.1:17687
 
 ### 1. Docker 환경 시작
 ```bash
-cd db_refactoring/docker
-docker-compose up -d
+# 프로젝트 루트에서 실행
+docker compose up -d
 ```
 
 ### 2. 스키마 테스트
@@ -103,7 +100,8 @@ python ../scripts/verify_schema.py --test
 
 ### 4. 정리
 ```bash
-docker-compose down -v  # 볼륨 포함 삭제
+# 프로젝트 루트에서 실행
+docker compose down -v  # 볼륨 포함 삭제
 ```
 
 ---

@@ -276,10 +276,10 @@ class BaseCarrierParser(ABC):
             return False
 
         # Pattern 2: Single-syllable words separated by spaces (e.g., "주 요 치 료")
-        # Count: if >40% of characters are spaces, reject
+        # Count: if >25% of characters are spaces, reject (tightened from 40%)
         if len(text) > 0:
             space_ratio = text.count(' ') / len(text)
-            if space_ratio > 0.4:
+            if space_ratio > 0.25:
                 return False
 
         # Pattern 3: Very short words (1-2 chars) with spaces
@@ -289,6 +289,11 @@ class BaseCarrierParser(ABC):
             short_word_count = sum(1 for w in words if len(w) <= 2 and re.match(r'^[가-힣]+$', w))
             if short_word_count == len(words):  # All words are short
                 return False
+
+        # Pattern 4: Broken Korean text (single syllables separated by spaces)
+        # Example: "비급 여 (전 액본 인부 담포 함)" - PDF parsing error
+        if re.search(r'[가-힣]\s[가-힣]\s[가-힣]', text):
+            return False
 
         # Filter: Phrases containing common header patterns
         # "위험보장 및 보험금 지급내용" type phrases
@@ -310,10 +315,10 @@ class BaseCarrierParser(ABC):
         if re.match(r'^[\d,\.]+\s*(만)?원$', text):
             return False
 
-        # Filter: Coverage names starting with row numbers (e.g., "97 카티(...)", "163 상해...")
-        # Pattern: digits followed by space and text
-        if re.match(r'^\d+\s+', text):
-            return False
+        # NOTE: 숫자 prefix (e.g., "119 뇌졸중진단비")는 coverage_pipeline._clean_coverage_name()에서
+        # clause_number로 분리되므로 여기서 필터링하지 않음
+        # if re.match(r'^\d+\s+', text):
+        #     return False
 
         # Filter: Phone numbers (XXXX-XXXX format)
         if re.match(r'^\d{4}-\d{4}$', text):
@@ -337,6 +342,35 @@ class BaseCarrierParser(ABC):
         # Example: "비급여(전액본인부담 포함) 암(유사암제 외) 항암약물치료"
         # Note: This is aggressive - comment out if these are actually valid coverages
         if text.startswith('비급여(전액본인부담'):
+            return False
+
+        # Filter: Plan name patterns (e.g., "07종_(41-75세)_무해지_납중0%/납후50%_...")
+        # Pattern: Contains underscores with percentage or 세/만기 terms
+        if '_' in text and ('세)' in text or '만기' in text or '%' in text):
+            return False
+
+        # Filter: Year-month patterns (e.g., "2024-11", "2025-01")
+        if re.match(r'^\d{4}-\d{1,2}$', text):
+            return False
+
+        # Filter: Document/Design ID patterns (e.g., "44512215-11-5-0001")
+        if re.match(r'^\d{8,}-\d+-\d+-\d+$', text):
+            return False
+
+        # Filter: Parsing artifacts with brackets/parentheses noise
+        # Examples: "기고]객님 (84102", corrupted text
+        if re.search(r'^\S*\][가-힣]+\s*\(\d+', text):
+            return False
+
+        # Filter: Product names (starts with "무배당" or contains "보험" with long text)
+        if text.startswith('무배당 ') or (len(text) > 20 and '보험' in text and '종합' in text):
+            return False
+
+        # Filter: Additional metadata keywords
+        additional_metadata = [
+            '합계보험료', '총납입보험료', '갱신계약', '1급', '2급', '3급',
+        ]
+        if text in additional_metadata:
             return False
 
         # Filter: Long descriptive phrases (commonly found in footnotes)
@@ -382,6 +416,46 @@ class BaseCarrierParser(ABC):
 
         # Filter: Age markers like "80세만기"
         if re.match(r'^\d+세만기$', text):
+            return False
+
+        # Filter: Plan type patterns (e.g., "영업용 운전자형", "자가용 운전자형", "보험료 납입면제형")
+        plan_type_patterns = [
+            r'운전자형$',           # Ends with 운전자형
+            r'납입면제.*형$',       # 보험료 납입면제형, 보험료 납입면제 미적용형
+            r'가전제품.*비용$',     # 12대가전제품 수리비용
+        ]
+        if any(re.search(p, text) for p in plan_type_patterns):
+            return False
+
+        # Filter: Surgery type patterns (e.g., "2종수술", "3종수술", "수술 (1-5종)")
+        if re.match(r'^\d+종수술$', text):
+            return False
+        if re.match(r'^수술\s*\(\d+-\d+종\)$', text):
+            return False
+
+        # Filter: Generic diagnosis/surgery terms (too short, no specifics)
+        generic_medical_terms = [
+            '질병사망', '상해사망', '깁스치료', '재활치료', '주요치료',
+            '특정치료', '중환자실치료', '화재벌금', '상해수술비', '질병수술비',
+            '유사암수술비', '유사암진단비', '골절/화상', '3대진단',
+            '부목치료', '유사암 수술',
+        ]
+        if text in generic_medical_terms:
+            return False
+
+        # Filter: Medical procedure with (급여) suffix - these are procedure codes, not coverages
+        # Examples: "CT촬영(급여)", "MRI촬영(급여)", "양전자단층촬영 (PET)(급여)"
+        if text.endswith('(급여)'):
+            return False
+
+        # Filter: Legal expense patterns (법률비용) - these are rider types
+        # Examples: "민사소송법률비용", "부동산소유권 법률비용"
+        if '법률비용' in text:
+            return False
+
+        # Filter: Patterns starting with parenthesis year/renewal
+        # Examples: "(10년갱신)갱신형 다빈치로봇", "(20년갱신)갱신형 중증질환자"
+        if re.match(r'^\(\d+년갱신\)', text):
             return False
 
         # Filter: Common table section headers

@@ -438,6 +438,108 @@ CREATE SEQUENCE public.clause_embedding_id_seq
 
 ALTER SEQUENCE public.clause_embedding_id_seq OWNED BY public.clause_embedding.id;
 
+-- ----------------------------------------------------------------------------
+-- 16. risk_event (위험 이벤트)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE public.risk_event (
+    id integer NOT NULL,
+    event_type character varying(50),
+    event_name character varying(200) NOT NULL,
+    severity_level integer,
+    icd_code_pattern character varying(100),
+    description text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE public.risk_event IS '위험 이벤트 (진단, 수술, 입원, 사망 등)';
+COMMENT ON COLUMN public.risk_event.event_type IS '이벤트 타입 (diagnosis, surgery, hospitalization, death)';
+COMMENT ON COLUMN public.risk_event.severity_level IS '심각도 (1-5)';
+COMMENT ON COLUMN public.risk_event.icd_code_pattern IS 'ICD/KCD 코드 패턴';
+
+CREATE SEQUENCE public.risk_event_id_seq
+    AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+
+ALTER SEQUENCE public.risk_event_id_seq OWNED BY public.risk_event.id;
+
+-- ----------------------------------------------------------------------------
+-- 17. benefit_risk_event (급부-위험이벤트 M:N 매핑)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE public.benefit_risk_event (
+    id integer NOT NULL,
+    benefit_id integer NOT NULL,
+    risk_event_id integer NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE public.benefit_risk_event IS '급부-위험이벤트 M:N 매핑';
+
+CREATE SEQUENCE public.benefit_risk_event_id_seq
+    AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+
+ALTER SEQUENCE public.benefit_risk_event_id_seq OWNED BY public.benefit_risk_event.id;
+
+-- ----------------------------------------------------------------------------
+-- 18. plan (가입설계)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE public.plan (
+    id integer NOT NULL,
+    document_id integer,
+    product_id integer,
+    variant_id integer,
+    plan_name character varying(200),
+    target_gender character varying(10),
+    target_age integer,
+    insurance_period character varying(50),
+    payment_period character varying(50),
+    payment_cycle character varying(20),
+    total_premium numeric(15,2),
+    attributes jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE public.plan IS '가입설계서 (상품요약서에서 추출)';
+COMMENT ON COLUMN public.plan.target_gender IS '대상 성별 (male, female)';
+COMMENT ON COLUMN public.plan.target_age IS '대상 연령';
+COMMENT ON COLUMN public.plan.insurance_period IS '보험기간 (예: 100세만기)';
+COMMENT ON COLUMN public.plan.payment_period IS '납입기간 (예: 20년납)';
+COMMENT ON COLUMN public.plan.payment_cycle IS '납입주기 (월납, 연납)';
+
+CREATE SEQUENCE public.plan_id_seq
+    AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+
+ALTER SEQUENCE public.plan_id_seq OWNED BY public.plan.id;
+
+-- ----------------------------------------------------------------------------
+-- 19. plan_coverage (가입설계-담보 연결)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE public.plan_coverage (
+    id integer NOT NULL,
+    plan_id integer NOT NULL,
+    coverage_id integer NOT NULL,
+    sum_insured numeric(15,2),
+    sum_insured_text character varying(100),
+    premium numeric(15,2),
+    is_basic boolean DEFAULT false,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE public.plan_coverage IS '가입설계-담보 연결 (가입금액, 보험료 포함)';
+COMMENT ON COLUMN public.plan_coverage.sum_insured IS '가입금액';
+COMMENT ON COLUMN public.plan_coverage.sum_insured_text IS '가입금액 텍스트 (예: 1,000만원)';
+COMMENT ON COLUMN public.plan_coverage.premium IS '보험료';
+COMMENT ON COLUMN public.plan_coverage.is_basic IS '기본 담보 여부';
+
+CREATE SEQUENCE public.plan_coverage_id_seq
+    AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+
+ALTER SEQUENCE public.plan_coverage_id_seq OWNED BY public.plan_coverage.id;
+
 -- ============================================================================
 -- 뷰 (VIEWS)
 -- ============================================================================
@@ -488,6 +590,10 @@ ALTER TABLE ONLY public.document_clause ALTER COLUMN id SET DEFAULT nextval('pub
 ALTER TABLE ONLY public.exclusion ALTER COLUMN id SET DEFAULT nextval('public.exclusion_id_seq'::regclass);
 ALTER TABLE ONLY public.product ALTER COLUMN id SET DEFAULT nextval('public.product_id_seq'::regclass);
 ALTER TABLE ONLY public.product_variant ALTER COLUMN id SET DEFAULT nextval('public.product_variant_id_seq'::regclass);
+ALTER TABLE ONLY public.risk_event ALTER COLUMN id SET DEFAULT nextval('public.risk_event_id_seq'::regclass);
+ALTER TABLE ONLY public.benefit_risk_event ALTER COLUMN id SET DEFAULT nextval('public.benefit_risk_event_id_seq'::regclass);
+ALTER TABLE ONLY public.plan ALTER COLUMN id SET DEFAULT nextval('public.plan_id_seq'::regclass);
+ALTER TABLE ONLY public.plan_coverage ALTER COLUMN id SET DEFAULT nextval('public.plan_coverage_id_seq'::regclass);
 
 -- ============================================================================
 -- 기본키 제약조건 (PRIMARY KEY)
@@ -508,6 +614,10 @@ ALTER TABLE ONLY public.document_clause ADD CONSTRAINT document_clause_pkey PRIM
 ALTER TABLE ONLY public.exclusion ADD CONSTRAINT exclusion_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.product ADD CONSTRAINT product_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.product_variant ADD CONSTRAINT product_variant_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.risk_event ADD CONSTRAINT risk_event_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.benefit_risk_event ADD CONSTRAINT benefit_risk_event_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.plan ADD CONSTRAINT plan_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.plan_coverage ADD CONSTRAINT plan_coverage_pkey PRIMARY KEY (id);
 
 -- ============================================================================
 -- 유니크 제약조건 (UNIQUE)
@@ -524,6 +634,8 @@ ALTER TABLE ONLY public.disease_code_set ADD CONSTRAINT disease_code_set_set_nam
 ALTER TABLE ONLY public.document ADD CONSTRAINT document_document_id_key UNIQUE (document_id);
 ALTER TABLE ONLY public.product ADD CONSTRAINT product_company_id_product_code_version_key UNIQUE (company_id, product_code, version);
 ALTER TABLE ONLY public.product_variant ADD CONSTRAINT product_variant_product_id_variant_code_key UNIQUE (product_id, variant_code);
+ALTER TABLE ONLY public.benefit_risk_event ADD CONSTRAINT benefit_risk_event_benefit_id_risk_event_id_key UNIQUE (benefit_id, risk_event_id);
+ALTER TABLE ONLY public.plan_coverage ADD CONSTRAINT plan_coverage_plan_id_coverage_id_key UNIQUE (plan_id, coverage_id);
 
 -- ============================================================================
 -- 인덱스 (INDEXES)
@@ -571,6 +683,22 @@ CREATE INDEX idx_variant_age_range ON public.product_variant USING btree (target
 CREATE INDEX idx_variant_gender ON public.product_variant USING btree (target_gender);
 CREATE INDEX idx_variant_product ON public.product_variant USING btree (product_id);
 
+-- risk_event 인덱스
+CREATE INDEX idx_risk_event_event_type ON public.risk_event USING btree (event_type);
+CREATE INDEX idx_risk_event_event_name ON public.risk_event USING btree (event_name);
+
+-- benefit_risk_event 인덱스
+CREATE INDEX idx_benefit_risk_event_benefit ON public.benefit_risk_event USING btree (benefit_id);
+CREATE INDEX idx_benefit_risk_event_risk_event ON public.benefit_risk_event USING btree (risk_event_id);
+
+-- plan 인덱스
+CREATE INDEX idx_plan_product ON public.plan USING btree (product_id);
+CREATE INDEX idx_plan_document ON public.plan USING btree (document_id);
+
+-- plan_coverage 인덱스
+CREATE INDEX idx_plan_coverage_plan ON public.plan_coverage USING btree (plan_id);
+CREATE INDEX idx_plan_coverage_coverage ON public.plan_coverage USING btree (coverage_id);
+
 -- ============================================================================
 -- 트리거 (TRIGGERS)
 -- ============================================================================
@@ -581,6 +709,8 @@ CREATE TRIGGER update_coverage_group_updated_at BEFORE UPDATE ON public.coverage
 CREATE TRIGGER update_coverage_updated_at BEFORE UPDATE ON public.coverage FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_product_updated_at BEFORE UPDATE ON public.product FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_product_variant_updated_at BEFORE UPDATE ON public.product_variant FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_risk_event_updated_at BEFORE UPDATE ON public.risk_event FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_plan_updated_at BEFORE UPDATE ON public.plan FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================================================
 -- 외래키 제약조건 (FOREIGN KEYS)
@@ -628,6 +758,19 @@ ALTER TABLE ONLY public.product ADD CONSTRAINT product_company_id_fkey FOREIGN K
 
 -- product_variant 외래키
 ALTER TABLE ONLY public.product_variant ADD CONSTRAINT product_variant_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.product(id);
+
+-- benefit_risk_event 외래키
+ALTER TABLE ONLY public.benefit_risk_event ADD CONSTRAINT benefit_risk_event_benefit_id_fkey FOREIGN KEY (benefit_id) REFERENCES public.benefit(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.benefit_risk_event ADD CONSTRAINT benefit_risk_event_risk_event_id_fkey FOREIGN KEY (risk_event_id) REFERENCES public.risk_event(id) ON DELETE CASCADE;
+
+-- plan 외래키
+ALTER TABLE ONLY public.plan ADD CONSTRAINT plan_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.document(id);
+ALTER TABLE ONLY public.plan ADD CONSTRAINT plan_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.product(id);
+ALTER TABLE ONLY public.plan ADD CONSTRAINT plan_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.product_variant(id);
+
+-- plan_coverage 외래키
+ALTER TABLE ONLY public.plan_coverage ADD CONSTRAINT plan_coverage_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plan(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.plan_coverage ADD CONSTRAINT plan_coverage_coverage_id_fkey FOREIGN KEY (coverage_id) REFERENCES public.coverage(id) ON DELETE CASCADE;
 
 -- ============================================================================
 -- 스키마 끝
