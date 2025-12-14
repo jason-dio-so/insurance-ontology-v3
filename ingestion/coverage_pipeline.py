@@ -127,7 +127,8 @@ class CoveragePipeline:
                 # Use cleaned coverage_name
                 coverage_name = cleaned['coverage_name']
                 clause_number = cleaned['clause_number']
-                coverage_period = cleaned['coverage_period']
+                # Use period from structured_data if available, otherwise from cleaned coverage_name
+                coverage_period = cov.get('period') or cleaned['coverage_period']
 
                 # Determine renewal_type (cleaned value takes precedence)
                 renewal_type = cleaned['renewal_type'] or self._extract_renewal_type(coverage_name)

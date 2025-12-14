@@ -48,6 +48,59 @@ class DocumentIngestionPipeline:
         'easy_summary': 'hybrid',
     }
 
+    @staticmethod
+    def _parse_age_range(doc_subtype: str, attributes: dict) -> tuple:
+        """
+        doc_subtype과 attributes에서 min_age, max_age 추출
+
+        Args:
+            doc_subtype: 문서 하위 유형 (male, female, age_40_under, age_41_over 등)
+            attributes: 추가 속성 딕셔너리
+
+        Returns:
+            (min_age, max_age) 튜플
+
+        Examples:
+            "age_40_under" → (0, 40)
+            "age_41_over" → (41, 100)
+            "40세" → (40, 40)
+            "30-39세" → (30, 39)
+        """
+        min_age, max_age = None, None
+
+        if doc_subtype:
+            # 패턴 1: age_40_under, age_41_over
+            if 'age_40_under' in doc_subtype:
+                min_age, max_age = 0, 40
+            elif 'age_41_over' in doc_subtype:
+                min_age, max_age = 41, 100
+            else:
+                # 패턴 2: "30-39세", "30~39세"
+                range_match = re.search(r'(\d+)[-~](\d+)세?', doc_subtype)
+                if range_match:
+                    min_age = int(range_match.group(1))
+                    max_age = int(range_match.group(2))
+                else:
+                    # 패턴 3: "40세", "40세이하", "41세이상"
+                    age_match = re.search(r'(\d+)세', doc_subtype)
+                    if age_match:
+                        age = int(age_match.group(1))
+                        if '이하' in doc_subtype:
+                            min_age, max_age = 0, age
+                        elif '이상' in doc_subtype:
+                            min_age, max_age = age, 100
+                        else:
+                            min_age = max_age = age
+
+        # attributes에서 명시적 값이 있으면 우선 적용
+        if attributes:
+            if 'min_age' in attributes and attributes['min_age'] is not None:
+                min_age = attributes['min_age']
+            if 'max_age' in attributes and attributes['max_age'] is not None:
+                max_age = attributes['max_age']
+
+        return min_age, max_age
+
     def __init__(self, db_url: str):
         """
         Initialize ingestion pipeline
@@ -174,14 +227,21 @@ class DocumentIngestionPipeline:
             target_gender = attributes.get('target_gender') or ('male' if 'male' in doc_subtype else ('female' if 'female' in doc_subtype else None))
             target_age_range = attributes.get('target_age_range')
 
+            # min_age, max_age 추출
+            min_age, max_age = self._parse_age_range(doc_subtype, attributes)
+
             cur.execute("""
-                INSERT INTO product_variant (product_id, variant_name, variant_code, target_gender, target_age_range, attributes)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (product_id, variant_code) DO UPDATE SET variant_name = EXCLUDED.variant_name
+                INSERT INTO product_variant (product_id, variant_name, variant_code, target_gender, target_age_range, min_age, max_age, attributes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (product_id, variant_code) DO UPDATE SET
+                    variant_name = EXCLUDED.variant_name,
+                    min_age = EXCLUDED.min_age,
+                    max_age = EXCLUDED.max_age
                 RETURNING id
-            """, (product_id, doc_subtype, variant_code, target_gender, target_age_range, json.dumps(attributes)))
+            """, (product_id, doc_subtype, variant_code, target_gender, target_age_range, min_age, max_age, json.dumps(attributes)))
 
             variant_id = cur.fetchone()[0]
+            logger.info(f"  product_variant: {variant_code} (min_age={min_age}, max_age={max_age})")
 
         # Insert document
         document_id_str = metadata.get('document_id')

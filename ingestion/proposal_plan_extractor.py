@@ -44,6 +44,107 @@ class ProposalPlanExtractor:
         'meritz': '메리츠',
     }
 
+    @staticmethod
+    def _parse_sum_insured(text: str) -> tuple:
+        """
+        가입금액 텍스트를 숫자와 텍스트로 분리
+
+        Args:
+            text: 가입금액 텍스트 (예: "1,000만원", "3천만원", "1억원")
+
+        Returns:
+            (numeric_value, original_text) 튜플
+
+        Examples:
+            "1,000만원" → (10000000.0, "1,000만원")
+            "3천만원" → (30000000.0, "3천만원")
+            "1억원" → (100000000.0, "1억원")
+            "10만원" → (100000.0, "10만원")
+            "1,000" → (1000.0, "1,000")  # 단위 없는 경우 (단위: 만원 가정)
+        """
+        if not text:
+            return None, None
+
+        original = str(text).strip()
+        cleaned = original.replace(',', '').replace(' ', '')
+
+        try:
+            # 패턴 1: "N억M천만원" (복합)
+            match = re.search(r'(\d+)억(\d*)천?만?원?', cleaned)
+            if match:
+                eok = int(match.group(1))
+                rest = int(match.group(2)) if match.group(2) else 0
+                if '천만' in cleaned:
+                    return float(eok * 100000000 + rest * 10000000), original
+                elif '만' in cleaned:
+                    return float(eok * 100000000 + rest * 10000), original
+                else:
+                    return float(eok * 100000000), original
+
+            # 패턴 2: "N억원"
+            match = re.search(r'(\d+\.?\d*)억', cleaned)
+            if match:
+                return float(match.group(1)) * 100000000, original
+
+            # 패턴 3: "N천만원"
+            match = re.search(r'(\d+\.?\d*)천만', cleaned)
+            if match:
+                return float(match.group(1)) * 10000000, original
+
+            # 패턴 4: "N만원" 또는 "N만"
+            match = re.search(r'(\d+\.?\d*)만', cleaned)
+            if match:
+                return float(match.group(1)) * 10000, original
+
+            # 패턴 5: 숫자만 있는 경우 (테이블에서 단위가 만원인 경우)
+            # 예: "1,000" (표 헤더가 "가입금액(만원)"인 경우)
+            match = re.search(r'^(\d+\.?\d*)$', cleaned)
+            if match:
+                value = float(match.group(1))
+                # 1000 이하는 만원 단위로 가정 (1,000만원 = 10,000,000원)
+                if value <= 10000:
+                    return value * 10000, original
+                else:
+                    return value, original
+
+        except (ValueError, AttributeError):
+            pass
+
+        return None, original
+
+    @staticmethod
+    def _parse_premium(text: str) -> float:
+        """
+        보험료 텍스트를 숫자로 변환
+
+        Args:
+            text: 보험료 텍스트 (예: "590원", "8,050원", "590")
+
+        Returns:
+            numeric_value (float) 또는 None
+
+        Examples:
+            "590원" → 590.0
+            "8,050원" → 8050.0
+            "34,230" → 34230.0
+        """
+        if not text:
+            return None
+
+        cleaned = str(text).strip().replace(',', '').replace(' ', '')
+
+        # "원" 제거
+        cleaned = cleaned.replace('원', '')
+
+        # "-" 또는 빈값 처리
+        if cleaned in ['-', '', '해당없음']:
+            return None
+
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+
     def __init__(self, db_url: str, converted_dir: str = 'data/converted_v2'):
         self.db_url = db_url
         self.converted_dir = Path(converted_dir)
@@ -360,6 +461,7 @@ class ProposalPlanExtractor:
             SELECT dc.id as clause_id,
                    dc.structured_data->>'coverage_name' as coverage_name,
                    dc.structured_data->>'coverage_amount' as coverage_amount,
+                   dc.structured_data->>'coverage_amount_text' as coverage_amount_text,
                    dc.structured_data->>'premium' as premium,
                    c.id as coverage_id
             FROM document_clause dc
@@ -377,28 +479,28 @@ class ProposalPlanExtractor:
             if not clause['coverage_id']:
                 continue  # Skip if no matching coverage in coverage table
 
+            # Parse sum_insured (가입금액)
             sum_insured = None
-            premium = None
+            sum_insured_text = None
 
-            if clause['coverage_amount']:
-                try:
-                    sum_insured = float(clause['coverage_amount'])
-                except ValueError:
-                    pass
+            # Try coverage_amount_text first (original text), then coverage_amount
+            amount_text = clause.get('coverage_amount_text') or clause.get('coverage_amount')
+            if amount_text:
+                sum_insured, sum_insured_text = self._parse_sum_insured(amount_text)
 
-            if clause['premium']:
-                try:
-                    premium = float(clause['premium'])
-                except ValueError:
-                    pass
+            # Parse premium (보험료)
+            premium = self._parse_premium(clause.get('premium'))
 
             # Insert plan_coverage
             try:
                 cur.execute("""
-                    INSERT INTO plan_coverage (plan_id, coverage_id, sum_insured, premium)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (plan_id, coverage_id) DO NOTHING
-                """, (plan_id, clause['coverage_id'], sum_insured, premium))
+                    INSERT INTO plan_coverage (plan_id, coverage_id, sum_insured, sum_insured_text, premium)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (plan_id, coverage_id) DO UPDATE SET
+                        sum_insured = EXCLUDED.sum_insured,
+                        sum_insured_text = EXCLUDED.sum_insured_text,
+                        premium = EXCLUDED.premium
+                """, (plan_id, clause['coverage_id'], sum_insured, sum_insured_text, premium))
                 count += 1
             except Exception as e:
                 logger.warning(f"Could not link coverage {clause['coverage_id']}: {e}")

@@ -26,19 +26,20 @@ except ImportError:
     from vector_index.factory import get_embedder
 
 
-def fetch_clauses(pg_conn, limit: int = None) -> List[Tuple[int, str, dict]]:
+def fetch_clauses(pg_conn, limit: int = None, min_length: int = 50) -> List[Tuple[int, str, dict]]:
     """
     PostgreSQL에서 조항을 조회합니다.
 
     Args:
         pg_conn: PostgreSQL 연결
         limit: 최대 조회 개수 (None이면 전체)
+        min_length: 최소 텍스트 길이 (기본: 50자, 노이즈 필터링)
 
     Returns:
         (clause_id, clause_text, metadata) 튜플 리스트
     """
     with pg_conn.cursor() as cur:
-        query = """
+        query = f"""
             SELECT
                 dc.id,
                 dc.clause_text,
@@ -50,6 +51,7 @@ def fetch_clauses(pg_conn, limit: int = None) -> List[Tuple[int, str, dict]]:
             FROM document_clause dc
             JOIN document d ON dc.document_id = d.id
             LEFT JOIN clause_coverage cc ON dc.id = cc.clause_id
+            WHERE LENGTH(dc.clause_text) >= {min_length}
             GROUP BY dc.id, dc.clause_text, dc.clause_type, dc.structured_data, d.doc_type, d.product_id
             ORDER BY dc.id
         """
@@ -87,7 +89,8 @@ def build_embeddings(
     pg_conn,
     backend: str = "jina",
     batch_size: int = 100,
-    limit: int = None
+    limit: int = None,
+    min_length: int = 50
 ):
     """
     조항 임베딩을 생성하고 저장합니다.
@@ -97,8 +100,10 @@ def build_embeddings(
         backend: 임베딩 백엔드 (jina 또는 openai)
         batch_size: 배치 크기
         limit: 최대 처리 개수 (None이면 전체)
+        min_length: 최소 텍스트 길이 (기본: 50자)
     """
     print(f"🔧 Using embedding backend: {backend}")
+    print(f"   Min text length: {min_length} chars")
 
     # Embedder 생성
     embedder = get_embedder(backend)
@@ -124,8 +129,8 @@ def build_embeddings(
     print()
 
     # 조항 조회
-    print("📦 Fetching clauses from PostgreSQL...")
-    clauses = fetch_clauses(pg_conn, limit=limit)
+    print(f"📦 Fetching clauses from PostgreSQL (min_length={min_length})...")
+    clauses = fetch_clauses(pg_conn, limit=limit, min_length=min_length)
 
     # 이미 임베딩된 clause 필터링
     clauses_to_process = [(cid, text, meta) for cid, text, meta in clauses if cid not in existing_ids]
@@ -208,6 +213,12 @@ def main():
         default=None,
         help="최대 처리 개수 (테스트용, 기본: 전체)"
     )
+    parser.add_argument(
+        "--min-length",
+        type=int,
+        default=50,
+        help="최소 텍스트 길이 (기본: 50자, 노이즈 필터링)"
+    )
 
     args = parser.parse_args()
 
@@ -230,7 +241,8 @@ def main():
             pg_conn,
             backend=args.backend,
             batch_size=args.batch_size,
-            limit=args.limit
+            limit=args.limit,
+            min_length=args.min_length
         )
 
         pg_conn.close()

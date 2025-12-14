@@ -643,6 +643,87 @@ db_refactoring/docs/
 
 ---
 
+## Phase 9: 엔티티 추출 파이프라인 (Day 18)
+
+**목표**: PDF에서 엔티티 추출 및 DB 저장
+**선행 조건**: Phase 7 완료 (온톨로지 확장)
+**후행 작업**: 데이터 품질 개선
+
+| ID | Task | 상태 | 선행 | 시작일 | 완료일 |
+|----|------|------|------|--------|--------|
+| 9.1 | Coverage 필터 개선 | ✅ COMPLETED | 7.9 | 2025-12-14 | 2025-12-14 |
+| 9.2 | 스키마 통합 (r1→v3) | ✅ COMPLETED | 9.1 | 2025-12-14 | 2025-12-14 |
+| 9.3 | proposal_plan_extractor.py | ✅ COMPLETED | 9.2 | 2025-12-14 | 2025-12-14 |
+| 9.4 | risk_event_extractor.py | ✅ COMPLETED | 9.2 | 2025-12-14 | 2025-12-14 |
+| 9.5 | exclusion/condition_extractor.py | ✅ COMPLETED | 9.2 | 2025-12-14 | 2025-12-14 |
+| 9.6 | clause_number 추출 수정 | ✅ COMPLETED | 9.1 | 2025-12-14 | 2025-12-14 |
+| 9.7 | 문서화 (품질 개선, 세션 요약) | ✅ COMPLETED | 9.5 | 2025-12-14 | 2025-12-14 |
+| 9.8 | 문서화 (테이블 컬럼 레퍼런스) | ✅ COMPLETED | 9.7 | 2025-12-14 | 2025-12-14 |
+| 9.9 | 문서 병합/정리 | ✅ COMPLETED | 9.8 | 2025-12-14 | 2025-12-14 |
+
+### Task 상세
+
+#### 9.1 Coverage 필터 개선
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | `base_parser.py`의 `is_valid_coverage_name()` 노이즈 필터 추가 |
+| 필터 | 띄어쓰기 비율 >25%, 깨진 한글, 플랜 타입, (급여) suffix, 법률비용 |
+| 결과 | 533개 → 294개 (45% 노이즈 제거) |
+
+#### 9.2 스키마 통합 (r1→v3)
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | r1 스키마의 4개 테이블을 v3에 적용 |
+| 테이블 | plan, plan_coverage, risk_event, benefit_risk_event |
+| 파일 | `001_initial_schema.sql` 교체 |
+
+#### 9.3 proposal_plan_extractor.py
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | proposal 문서에서 Plan/PlanCoverage 추출 |
+| 결과 | 10개 Plan, 571개 plan_coverage |
+| 패턴 처리 | 회사별 (Samsung: 공백, Hyundai: 연결, Lotte: 역순) |
+
+#### 9.4 risk_event_extractor.py
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | terms 문서에서 위험 이벤트 추출 |
+| 결과 | 572개 risk_event (cancer 220, treatment 106, hospitalization 84...) |
+| 추출 패턴 | 정의 조항, ICD 코드 (C73, I63 등) |
+
+#### 9.5 exclusion/condition_extractor.py
+
+| 항목 | 내용 |
+|------|------|
+| 설명 | terms 문서에서 면책/조건 추출 |
+| 결과 | exclusion 28건, condition 42건 |
+| 추출 패턴 | "보험금을 지급하지 않는 사유", "보장개시", "면책기간" |
+
+#### 9.6 clause_number 추출 수정
+
+| 항목 | 내용 |
+|------|------|
+| 문제 | coverage.clause_number가 항상 NULL |
+| 원인 | `is_valid_coverage_name()`에서 숫자 prefix 필터링 |
+| 해결 | 필터 비활성화, `_clean_coverage_name()`에서 분리 |
+| 결과 | 8개 coverage에 clause_number 입력됨 |
+
+#### 9.7-9.9 문서화
+
+| 파일 | 내용 |
+|------|------|
+| `data_quality_improvements.md` | 데이터 품질 개선 필요 항목 및 해결안 |
+| `table_column_reference.md` | 19개 테이블 컬럼별 샘플값, 데이터 소스 |
+| `session_20241214_summary.md` | 작업 세션 요약 |
+| `pdf_ext.md` | pdf_ext_tasks.md 병합 |
+| `parser_refact_tasks.md` | docx에서 md 생성 |
+
+---
+
 ## 진행 이력
 
 | 날짜 | Task ID | 변경 내용 | 비고 |
@@ -665,6 +746,15 @@ db_refactoring/docs/
 | 2025-12-14 | - | 임베딩 생성 완료 | OpenAI text-embedding-3-small, 134,844건, 1.8GB |
 | 2025-12-14 | 6.3 | MIGRATION_GUIDE.md 작성 | Alembic 마이그레이션 가이드 |
 | 2025-12-14 | 8.1-8.4 | Phase 8 완료 | NL Mapper, Vector/Hybrid Retriever, Context Assembly 테스트 완료, retriever.py 1536차원 수정 |
+| 2025-12-14 | 9.1 | Coverage 필터 개선 | base_parser.py 노이즈 필터 추가 (533→294개, 45% 감소) |
+| 2025-12-14 | 9.2 | 스키마 통합 (r1→v3) | plan, plan_coverage, risk_event, benefit_risk_event 테이블 추가 |
+| 2025-12-14 | 9.3 | 엔티티 추출기 구현 | proposal_plan_extractor.py (10 plans, 571 plan_coverage) |
+| 2025-12-14 | 9.4 | 엔티티 추출기 구현 | risk_event_extractor.py (572 risk_events) |
+| 2025-12-14 | 9.5 | 엔티티 추출기 구현 | exclusion_extractor.py (28건), condition_extractor.py (42건) |
+| 2025-12-14 | 9.6 | clause_number 수정 | 숫자 prefix 필터 비활성화, _clean_coverage_name()에서 분리 |
+| 2025-12-14 | 9.7 | 문서화 | session_20241214_summary.md, data_quality_improvements.md 작성 |
+| 2025-12-14 | 9.8 | 문서화 | table_column_reference.md 작성 (19 테이블 상세) |
+| 2025-12-14 | 9.9 | 문서 정리 | pdf_ext.md + pdf_ext_tasks.md 병합, parser_refact_tasks.md 생성 |
 
 ---
 
@@ -708,6 +798,7 @@ db_refactoring/docs/
 | Phase 6 | CI/CD 통합 | Day 12 | Phase 3 | ⬜ |
 | Phase 7 | 온톨로지 확장 | Day 13-15 | Phase 4 | ✅ 완료 |
 | Phase 8 | 검색 시스템 | Day 16-17 | Phase 5 | ✅ 완료 |
+| Phase 9 | 엔티티 추출 파이프라인 | Day 18 | Phase 7 | ✅ 완료 |
 
 ---
 
@@ -720,9 +811,10 @@ db_refactoring/docs/
 
 ---
 
-**문서 버전**: 2.1
-**최종 수정**: 2025-12-13
+**문서 버전**: 2.2
+**최종 수정**: 2025-12-14
 **변경 이력**:
 - v1.0 (2025-12-13): 초기 작성
 - v2.0 (2025-12-13): database_refactoring.md v2.2 기반 재작성, 선후관계 반영, Phase 1.5를 a/b로 분리
 - v2.1 (2025-12-13): Phase 2.5 (DB 전환) 추가, 16개 파일 수정, 데이터 마이그레이션 완료
+- v2.2 (2025-12-14): Phase 9 (엔티티 추출 파이프라인) 추가, 4개 추출기 구현, 문서화 완료

@@ -81,14 +81,15 @@ id: 9, product_code: healthinsurance, product_name: 무배당 한화손해보험
 | variant_code | varchar(50) | `male` | variant_name과 동일 |
 | target_gender | varchar(10) | `male` | variant에서 파싱 (male/female → target_gender) |
 | target_age_range | varchar(20) | `≤40` | variant에서 파싱 (age_40_under → ≤40) |
-| min_age | int | `NULL` ❌ | 미구현 |
-| max_age | int | `NULL` ❌ | 미구현 |
+| min_age | int | `0` | `_parse_age_range()` (age_40_under → 0) |
+| max_age | int | `40` | `_parse_age_range()` (age_40_under → 40) |
 | attributes | jsonb | `{'target_gender': 'male'}` | variant 정보를 JSON으로 저장 |
 
 ### 샘플 데이터
 ```
-id: 3, variant_code: male, target_gender: male, target_age_range: NULL
-id: 25, variant_code: age_40_under, target_gender: NULL, target_age_range: ≤40
+id: 3, variant_code: male, target_gender: male, min_age: NULL, max_age: NULL
+id: 25, variant_code: age_40_under, target_age_range: ≤40, min_age: 0, max_age: 40
+id: 26, variant_code: age_41_over, target_age_range: >40, min_age: 41, max_age: 100
 ```
 
 ---
@@ -104,15 +105,16 @@ id: 25, variant_code: age_40_under, target_gender: NULL, target_age_range: ≤40
 |------|------|---------|------|
 | id | int | 1754 | 자동생성 |
 | product_id | int | 57 | FK → product.id (document_clause에서) |
-| group_id | int | `NULL` ❌ | 미구현 (coverage_group 연결) |
+| group_id | int | `12` | coverage_group FK (company + category 기반, 100%) |
 | coverage_code | varchar(200) | `뇌졸중진단비` | `_generate_coverage_code()` - coverage_name 정제 |
 | coverage_name | text | `뇌졸중진단비` | document_clause.structured_data → coverage_name |
 | coverage_category | varchar(100) | `major_disease_diagnosis` | `_infer_coverage_category()` - 이름에서 추론 |
 | renewal_type | varchar(20) | `갱신형` / `NULL` | `_extract_renewal_type()` 또는 `_clean_coverage_name()` |
 | is_basic | boolean | `false` | coverage_name에 '기본계약' 포함 여부 |
 | clause_number | varchar(50) | `123` / `NULL` | `_clean_coverage_name()` - "123 뇌졸중진단비" 파싱 |
-| coverage_period | varchar(20) | `NULL` ❌ | `_clean_coverage_name()` - 추출은 되나 저장 안됨 |
-| parent_coverage_id | int | `NULL` | 미구현 (계층 구조) |
+| coverage_period | varchar(100) | `20년/100세` | `structured_data.period` (71% 채워짐) |
+| parent_coverage_id | int | `42` | 담보명mapping자료.xlsx 기반 계층 (38건, 13%) |
+| standard_code | varchar(20) | `A4200_1` | 신정원 표준코드 (198건, 67%) |
 
 ### 샘플 데이터
 ```

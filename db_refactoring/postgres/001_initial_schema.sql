@@ -1,8 +1,14 @@
 -- ============================================================================
 -- 보험 온톨로지 데이터베이스 스키마
--- 버전: 1.0
+-- 버전: 1.1
 -- 생성일: 2025-12-13
+-- 수정일: 2025-12-14
 -- 설명: 보험 상품 온톨로지 시스템용 PostgreSQL 스키마
+-- 변경사항:
+--   v1.1: coverage.notes, coverage.standard_code 추가
+--         coverage.coverage_period varchar(100)으로 확장
+--         risk_event.severity_level varchar(20)으로 변경
+--         plan.product_id NOT NULL 추가
 -- ============================================================================
 
 -- 원본 DB 버전: PostgreSQL 16.11 (Debian 16.11-1.pgdg12+1)
@@ -190,15 +196,17 @@ CREATE TABLE public.coverage (
     product_id integer NOT NULL,
     group_id integer,
     coverage_code character varying(200),
-    coverage_name TEXT NOT NULL,
+    coverage_name character varying(500) NOT NULL,
     coverage_category character varying(100),
     renewal_type character varying(20),
     is_basic boolean DEFAULT false,
     clause_number character varying(50),
-    coverage_period character varying(20),
+    coverage_period character varying(100),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    parent_coverage_id integer
+    parent_coverage_id integer,
+    notes text,
+    standard_code character varying(50)
 );
 
 COMMENT ON TABLE public.coverage IS '담보 (특별약관 단위)';
@@ -206,7 +214,9 @@ COMMENT ON COLUMN public.coverage.group_id IS '소속 특별약관군';
 COMMENT ON COLUMN public.coverage.renewal_type IS '갱신형, 비갱신형';
 COMMENT ON COLUMN public.coverage.is_basic IS '기본형 담보 여부';
 COMMENT ON COLUMN public.coverage.clause_number IS '조항 번호 (예: 119, 121) - coverage_name 오염 방지용';
-COMMENT ON COLUMN public.coverage.coverage_period IS '기간 정보 (예: 10년, 15년) - coverage_name 오염 방지용';
+COMMENT ON COLUMN public.coverage.coverage_period IS '기간 정보 (예: 20년/100세만기)';
+COMMENT ON COLUMN public.coverage.notes IS '메모/비고';
+COMMENT ON COLUMN public.coverage.standard_code IS '신정원 표준 담보코드 (예: A9630_1, A6300_1)';
 
 CREATE SEQUENCE public.coverage_id_seq
     AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
@@ -444,9 +454,9 @@ ALTER SEQUENCE public.clause_embedding_id_seq OWNED BY public.clause_embedding.i
 
 CREATE TABLE public.risk_event (
     id integer NOT NULL,
-    event_type character varying(50),
+    event_type character varying(50) NOT NULL,
     event_name character varying(200) NOT NULL,
-    severity_level integer,
+    severity_level character varying(20),
     icd_code_pattern character varying(100),
     description text,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
@@ -454,8 +464,8 @@ CREATE TABLE public.risk_event (
 );
 
 COMMENT ON TABLE public.risk_event IS '위험 이벤트 (진단, 수술, 입원, 사망 등)';
-COMMENT ON COLUMN public.risk_event.event_type IS '이벤트 타입 (diagnosis, surgery, hospitalization, death)';
-COMMENT ON COLUMN public.risk_event.severity_level IS '심각도 (1-5)';
+COMMENT ON COLUMN public.risk_event.event_type IS '이벤트 타입 (cancer, cerebrovascular, cardiovascular, hospitalization, injury, treatment)';
+COMMENT ON COLUMN public.risk_event.severity_level IS '심각도 (low, medium, high)';
 COMMENT ON COLUMN public.risk_event.icd_code_pattern IS 'ICD/KCD 코드 패턴';
 
 CREATE SEQUENCE public.risk_event_id_seq
@@ -488,7 +498,7 @@ ALTER SEQUENCE public.benefit_risk_event_id_seq OWNED BY public.benefit_risk_eve
 CREATE TABLE public.plan (
     id integer NOT NULL,
     document_id integer,
-    product_id integer,
+    product_id integer NOT NULL,
     variant_id integer,
     plan_name character varying(200),
     target_gender character varying(10),
