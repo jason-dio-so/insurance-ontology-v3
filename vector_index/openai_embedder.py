@@ -13,13 +13,12 @@ import os
 from typing import List
 from openai import OpenAI
 from dotenv import load_dotenv
-from .embedder import BaseEmbedder
 
 # Load environment variables from .env file
 load_dotenv()
 
 
-class OpenAIEmbedder(BaseEmbedder):
+class OpenAIEmbedder:
     """OpenAI Embeddings 구현"""
 
     def __init__(

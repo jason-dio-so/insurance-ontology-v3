@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 """
-벡터 인덱스 빌드 스크립트
+벡터 인덱스 빌드 스크립트 (OpenAI 전용)
 
 PostgreSQL의 document_clause 테이블에서 조항을 읽어
-임베딩을 생성하고 clause_embedding 테이블에 저장합니다.
+OpenAI 임베딩을 생성하고 clause_embedding 테이블에 저장합니다.
 
 Usage:
-    python vector_index/build_index.py [--backend jina|openai] [--batch-size 100]
+    python vector_index/build_index.py [--batch-size 100]
 """
 
 import os
 import sys
+import json
 import argparse
 import psycopg2
 from typing import List, Tuple
 from dotenv import load_dotenv
 
+from .openai_embedder import OpenAIEmbedder
+
 # .env 파일 로드
 load_dotenv()
-
-# 상대 import가 실패할 경우 절대 import 시도
-try:
-    from .factory import get_embedder
-except ImportError:
-    from vector_index.factory import get_embedder
 
 
 def fetch_clauses(pg_conn, limit: int = None, min_length: int = 50) -> List[Tuple[int, str, dict]]:
@@ -87,7 +84,6 @@ def fetch_clauses(pg_conn, limit: int = None, min_length: int = 50) -> List[Tupl
 
 def build_embeddings(
     pg_conn,
-    backend: str = "jina",
     batch_size: int = 100,
     limit: int = None,
     min_length: int = 50
@@ -97,16 +93,15 @@ def build_embeddings(
 
     Args:
         pg_conn: PostgreSQL 연결
-        backend: 임베딩 백엔드 (jina 또는 openai)
         batch_size: 배치 크기
         limit: 최대 처리 개수 (None이면 전체)
         min_length: 최소 텍스트 길이 (기본: 50자)
     """
-    print(f"🔧 Using embedding backend: {backend}")
+    print("🔧 Using OpenAI embeddings")
     print(f"   Min text length: {min_length} chars")
 
-    # Embedder 생성
-    embedder = get_embedder(backend)
+    # OpenAI Embedder 생성
+    embedder = OpenAIEmbedder()
     model_name = embedder.get_model_name()
     dimension = embedder.get_dimension()
 
@@ -170,9 +165,6 @@ def build_embeddings(
 
             # DB에 저장
             for clause_id, embedding, metadata in zip(clause_ids, embeddings, metadatas):
-                # pgvector는 리스트를 자동으로 변환
-                # metadata를 JSON으로 저장
-                import json
                 cur.execute("""
                     INSERT INTO clause_embedding (clause_id, embedding, model_name, metadata)
                     VALUES (%s, %s, %s, %s)
@@ -194,13 +186,7 @@ def build_embeddings(
 
 def main():
     """메인 함수"""
-    parser = argparse.ArgumentParser(description="벡터 인덱스 빌드")
-    parser.add_argument(
-        "--backend",
-        choices=["fastembed", "bge", "jina", "openai"],
-        default=os.getenv("EMBEDDING_BACKEND", "fastembed"),
-        help="임베딩 백엔드 (기본: fastembed)"
-    )
+    parser = argparse.ArgumentParser(description="벡터 인덱스 빌드 (OpenAI)")
     parser.add_argument(
         "--batch-size",
         type=int,
@@ -223,7 +209,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("벡터 인덱스 빌드")
+    print("벡터 인덱스 빌드 (OpenAI)")
     print("=" * 60)
     print()
 
@@ -239,7 +225,6 @@ def main():
 
         build_embeddings(
             pg_conn,
-            backend=args.backend,
             batch_size=args.batch_size,
             limit=args.limit,
             min_length=args.min_length

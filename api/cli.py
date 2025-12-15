@@ -88,10 +88,50 @@ class InsuranceCLI:
 
         # 1. Vector search (with entity filters)
         print("📊 Step 1/3: Vector search...")
-        vector_results = self.retriever.search(
-            query=query,
-            top_k=limit
+
+        # 비교 쿼리 감지: 회사가 2개 이상이고 비교 키워드가 있는 경우
+        comparison_keywords = ["비교", "차이", "vs", "VS", "와", "과"]
+        companies = entities.get("companies", [])
+        is_comparison_query = (
+            len(companies) >= 2 and
+            any(kw in query for kw in comparison_keywords)
         )
+
+        if is_comparison_query:
+            # 비교 쿼리: 각 회사별로 개별 검색 후 병합
+            print(f"   🔄 Comparison mode: searching {len(companies)} companies...")
+            coverage_keywords = entities.get("coverages", [])
+            coverage_name = coverage_keywords[0] if coverage_keywords else ""
+
+            # 키워드 추출 (담보/보장 관련)
+            for kw in ["입원", "수술", "진단", "암", "뇌출혈", "뇌졸중", "심근경색", "골절"]:
+                if kw in query and kw not in coverage_name:
+                    coverage_name = kw if not coverage_name else f"{coverage_name} {kw}"
+
+            results_by_company = self.retriever.search_multi_company(
+                query=query,
+                company_names=companies,
+                coverage_name=coverage_name,
+                top_k=limit,
+                search_top_k=30
+            )
+
+            # 결과 병합 (각 회사별 top 결과를 교차 배치)
+            vector_results = []
+            max_results = max(len(v) for v in results_by_company.values()) if results_by_company else 0
+            for i in range(min(max_results, limit)):
+                for company_name, results in results_by_company.items():
+                    if i < len(results) and len(vector_results) < limit:
+                        vector_results.append(results[i])
+
+            print(f"   Found results from: {', '.join(k for k, v in results_by_company.items() if v)}")
+        else:
+            # 일반 쿼리: 기존 검색 방식
+            vector_results = self.retriever.search(
+                query=query,
+                top_k=limit
+            )
+
         print(f"   Found {len(vector_results)} relevant clauses\n")
 
         # 2. Context assembly
@@ -160,7 +200,7 @@ class InsuranceCLI:
             response = self.llm_client.generate(
                 prompt=prompt,
                 temperature=0.1,
-                max_tokens=2000,
+                max_tokens=1000,  # 2000 → 1000 for faster response
                 stream=stream
             )
 

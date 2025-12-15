@@ -21,7 +21,7 @@ import psycopg2
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 from ontology.nl_mapping import NLMapper
-from vector_index.factory import get_embedder
+from vector_index.openai_embedder import OpenAIEmbedder
 
 
 # 키워드 부스팅을 위한 담보/보장 관련 핵심 키워드
@@ -55,23 +55,16 @@ load_dotenv()
 class HybridRetriever:
     """하이브리드 검색 엔진 (온톨로지 + 벡터)"""
 
-    def __init__(
-        self,
-        postgres_url: str = None,
-        embedder_backend: str = None
-    ):
+    def __init__(self, postgres_url: str = None):
         """
         Args:
             postgres_url: PostgreSQL 연결 문자열
-            embedder_backend: 임베딩 백엔드 ("fastembed" 또는 "openai", None=환경변수 사용)
         """
         self.postgres_url = postgres_url or os.getenv("POSTGRES_URL")
         if not self.postgres_url:
             raise ValueError("POSTGRES_URL environment variable is required. Check .env file.")
         self.pg_conn = psycopg2.connect(self.postgres_url)
-        # 환경변수에서 백엔드 가져오기 (기본값: openai)
-        backend = embedder_backend or os.getenv("EMBEDDING_BACKEND", "openai")
-        self.embedder = get_embedder(backend)
+        self.embedder = OpenAIEmbedder()
         self.nl_mapper = NLMapper(self.postgres_url)
 
     def _extract_boost_keywords(self, query: str) -> List[str]:
@@ -539,6 +532,35 @@ class HybridRetriever:
 
             return results
 
+    def _search_single_company(
+        self,
+        company_name: str,
+        coverage_name: str,
+        search_top_k: int
+    ) -> tuple:
+        """단일 회사 검색 (병렬 실행용)"""
+        company_query = f"{company_name} {coverage_name}"
+
+        try:
+            # company_id 조회 (DB 직접 조회로 단순화)
+            company_id = self._get_company_id_by_name(company_name)
+
+            if not company_id:
+                return (company_name, [])
+
+            # 단순화된 검색: 모든 문서에서 검색 (fallback 제거로 속도 향상)
+            search_results = self.search(
+                query=company_query,
+                top_k=search_top_k,
+                filters={"company_id": company_id}
+            )
+
+            return (company_name, search_results)
+
+        except Exception as e:
+            print(f"Error searching for company {company_name}: {e}")
+            return (company_name, [])
+
     def search_multi_company(
         self,
         query: str,
@@ -548,7 +570,7 @@ class HybridRetriever:
         search_top_k: int = 50
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        여러 보험사에 대해 동일 쿼리로 검색 (상품 비교용)
+        여러 보험사에 대해 동일 쿼리로 검색 (상품 비교용) - 병렬 실행
 
         Args:
             query: 기본 쿼리 (예: "암진단")
@@ -564,83 +586,25 @@ class HybridRetriever:
                 ...
             }
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         results_by_company = {}
 
-        for company_name in company_names:
-            # 회사별 개별 검색 실행
-            company_query = f"{company_name} {coverage_name}"
+        # 병렬 검색 실행
+        with ThreadPoolExecutor(max_workers=len(company_names)) as executor:
+            futures = {
+                executor.submit(
+                    self._search_single_company,
+                    company_name,
+                    coverage_name,
+                    search_top_k
+                ): company_name
+                for company_name in company_names
+            }
 
-            try:
-                # NL Mapper로 company_id 추출
-                entities = self.nl_mapper.extract_entities(company_query)
-                company_id = entities["filters"].get("company_id")
-
-                if not company_id:
-                    # company_id를 못 찾으면 DB에서 직접 조회
-                    company_id = self._get_company_id_by_name(company_name)
-
-                if company_id:
-                    # 검색 실행 (Terms 문서 우선 - 가장 상세하고 정확)
-                    # search_top_k로 많이 가져온 후 re-ranking으로 top_k 선택
-                    # 1차: terms 문서 검색 (가장 정확한 정보)
-                    search_results = self.search(
-                        query=company_query,
-                        top_k=search_top_k,  # 많이 가져오기
-                        filters={
-                            "company_id": company_id,
-                            "doc_type": "terms"
-                        }
-                    )
-
-                    # 2차: 결과가 없으면 business_spec 시도 (두 번째로 상세)
-                    if not search_results:
-                        search_results = self.search(
-                            query=company_query,
-                            top_k=search_top_k,
-                            filters={
-                                "company_id": company_id,
-                                "doc_type": "business_spec"
-                            }
-                        )
-
-                    # 3차: 결과가 없으면 product_summary (요약 정보)
-                    if not search_results:
-                        search_results = self.search(
-                            query=company_query,
-                            top_k=search_top_k,
-                            filters={
-                                "company_id": company_id,
-                                "doc_type": "product_summary"
-                            }
-                        )
-
-                    # 4차: 여전히 없으면 proposal (짧은 정보지만 어쩔 수 없음)
-                    if not search_results:
-                        search_results = self.search(
-                            query=company_query,
-                            top_k=search_top_k,
-                            filters={
-                                "company_id": company_id,
-                                "doc_type": "proposal"
-                            }
-                        )
-
-                    # 5차: 여전히 없으면 모든 문서 검색
-                    if not search_results:
-                        search_results = self.search(
-                            query=company_query,
-                            top_k=search_top_k,
-                            filters={"company_id": company_id}
-                        )
-
-                    results_by_company[company_name] = search_results
-                else:
-                    # 회사를 찾지 못한 경우
-                    results_by_company[company_name] = []
-
-            except Exception as e:
-                print(f"Error searching for company {company_name}: {e}")
-                results_by_company[company_name] = []
+            for future in as_completed(futures):
+                company_name, results = future.result()
+                results_by_company[company_name] = results
 
         return results_by_company
 

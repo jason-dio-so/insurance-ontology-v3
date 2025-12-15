@@ -1,0 +1,1032 @@
+{
+  "metadata": {
+    "evaluation_date": "2025-12-15T02:39:43.165772",
+    "total_queries": 50,
+    "qa_set_version": "1.0"
+  },
+  "overall": {
+    "total": 50,
+    "success": 42,
+    "error": 0,
+    "accuracy": 84.0
+  },
+  "by_category": {
+    "gender": {
+      "total": 6,
+      "success": 6,
+      "accuracy": 100.0
+    },
+    "premium": {
+      "total": 2,
+      "success": 2,
+      "accuracy": 100.0
+    },
+    "age": {
+      "total": 4,
+      "success": 4,
+      "accuracy": 100.0
+    },
+    "amount": {
+      "total": 12,
+      "success": 7,
+      "accuracy": 58.33
+    },
+    "basic": {
+      "total": 10,
+      "success": 10,
+      "accuracy": 100.0
+    },
+    "edge_case": {
+      "total": 6,
+      "success": 5,
+      "accuracy": 83.33
+    },
+    "condition": {
+      "total": 4,
+      "success": 4,
+      "accuracy": 100.0
+    },
+    "comparison": {
+      "total": 6,
+      "success": 4,
+      "accuracy": 66.67
+    }
+  },
+  "by_difficulty": {
+    "medium": {
+      "total": 24,
+      "success": 20,
+      "accuracy": 83.33
+    },
+    "hard": {
+      "total": 11,
+      "success": 8,
+      "accuracy": 72.73
+    },
+    "easy": {
+      "total": 15,
+      "success": 14,
+      "accuracy": 93.33
+    }
+  },
+  "latency": {
+    "avg_ms": 3878.22,
+    "p95_ms": 9527.98
+  },
+  "detailed_results": [
+    {
+      "query_id": "Q001",
+      "query": "삼성화재 암 진단금 ",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 6129.12,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "3,000만원",
+        "암 진단비"
+      ],
+      "expected_keywords": [
+        "3,000만원",
+        "암 진단비"
+      ],
+      "answer": "제공된 문서에서 삼성화재의 암 진단금에 대한 정보는 다음과 같습니다.\n\n답변: 삼성화재의 암 진단비는 유사암을 제외한 암으로 진단 확정된 경우 지급됩니다. 💰 보장금액: **3,000만원**입니다. 이 보장은 최초 1회에 한하여 지급됩니다. 보장개시일은 최초 계약일 또는 부활일로부터 90일이 지난 날의 다음날입니다. \n\n근거: [2], [4] (proposal (삼성) - 페이지 2, 페이지 5)\n\n주의사항: 유사암은 기타피부암, 갑상선암, 대장점막내암, 제자리암, 경계성종양을 포함하지 않습니다."
+    },
+    {
+      "query_id": "Q002",
+      "query": "DB손보 뇌출혈 ",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "fail",
+      "latency_ms": 1802.94,
+      "num_results": 5,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "뇌출혈"
+      ],
+      "expected_keywords": [
+        "뇌출혈",
+        "1,000만원"
+      ],
+      "answer": "제공된 문서에서 DB손보 뇌출혈에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q003",
+      "query": "롯데 급성심근경색 500만원",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 4105.98,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "급성심근경색",
+        "500만원"
+      ],
+      "expected_keywords": [
+        "급성심근경색",
+        "500만원"
+      ],
+      "answer": "답변: 제공된 문서에서 롯데의 급성심근경색증(I21) 혈전용해치료비에 대한 보장금액은 200만원으로 명시되어 있습니다. 500만원에 대한 정보는 찾을 수 없습니다. \n💰 보장금액: **200만원**\n\n근거: [1], [2], [3], [4] (롯데 보험 제안서)\n\n주의사항: 500만원에 대한 보장 내용은 제공된 문서에 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q004",
+      "query": "한화 수술비 100만원",
+      "category": "amount",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 2309.46,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "수술",
+        "100만원"
+      ],
+      "expected_keywords": [
+        "수술",
+        "100만원"
+      ],
+      "answer": "제공된 문서에서 \"한화 수술비 100만원\"에 대한 정보는 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다.\n근거: 해당 정보 없음\n주의사항: 추가적인 정보가 필요하시면 다른 질문을 해주시기 바랍니다."
+    },
+    {
+      "query_id": "Q005",
+      "query": "메리츠 암진단",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 9707.41,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "암",
+        "3,000만원"
+      ],
+      "expected_keywords": [
+        "암",
+        "3,000만원"
+      ],
+      "answer": "| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 메리츠 | 암진단비(유사암제외) | 암 진단 시 지급 | 3,000만원 | [2] 유사암 제외 |\n| 메리츠 | 재진단암진단비(1년 대기형) | 재진단 시 지급 | 1,000만원 | [3] 1년 대기형 |\n\n### 세부 설명\n- **메리츠 암진단비(유사암제외)**: 이 상품은 암 진단 시 3,000만원을 지급하며, 유사암은 보장하지 않습니다. \n  - 💰 보장금액: **3,000만원** (3000만원)\n  - 근거: [2]\n  \n- **메리츠 재진단암진단비(1년 대기형)**: 이 상품은 암이 재진단될 경우 1,000만원을 지급하며, 1년의 대기 기간이 있습니다.\n  - 💰 보장금액: **1,000만원** (1000만원)\n  - 근거: [3] \n\n제공된 문서에서 다른 보험사에 대한 정보는 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q006",
+      "query": "현대해상 뇌졸중",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "fail",
+      "latency_ms": 5990.4,
+      "num_results": 5,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "뇌졸중"
+      ],
+      "expected_keywords": [
+        "뇌졸중",
+        "1,000만원"
+      ],
+      "answer": "제공된 문서에서 현대해상 뇌졸중에 대한 정보는 다음과 같습니다.\n\n답변: 현대해상에서는 뇌졸중에 대한 보장을 제공하는 \"혈전용해치료비Ⅱ(최초1회한)(뇌졸중)담보\"가 있습니다. 이 담보의 💰 보장금액은 **200만원**입니다. 이 담보는 치료 유형으로, 가입금액은 200만원이며, 20년 납입 후 100세 만기로 설정되어 있습니다. \n\n- 근거: [1] 혈전용해치료비Ⅱ(최초1회한)(뇌졸중)담보, 출처: proposal (현대) - 페이지 7\n- 주의사항: 뇌졸중 관련 보장은 특정 치료비에 한정되며, 다른 보장 내용은 별도로 확인해야 할 수 있습니다."
+    },
+    {
+      "query_id": "Q007",
+      "query": "KB손해보험 입원비 10만원",
+      "category": "amount",
+      "difficulty": "easy",
+      "status": "fail",
+      "latency_ms": 3008.43,
+      "num_results": 5,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "입원"
+      ],
+      "expected_keywords": [
+        "입원",
+        "10만원"
+      ],
+      "answer": "제공된 문서에서 KB손해보험의 입원비에 대한 정보는 찾을 수 없습니다. 따라서, \"제공된 문서에서 해당 정보를 찾을 수 없습니다\"라고 답변드립니다.\n\n근거: 제공된 조항 없음\n주의사항: 입원비에 대한 구체적인 보장 내용이나 금액은 제공된 조항에 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q008",
+      "query": "흥국 암수술비",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "fail",
+      "latency_ms": 3477.59,
+      "num_results": 5,
+      "keyword_match_rate": 0.67,
+      "matched_keywords": [
+        "암",
+        "수술"
+      ],
+      "expected_keywords": [
+        "암",
+        "수술",
+        "600만원"
+      ],
+      "answer": "답변: 제공된 문서에서 \"흥국 암수술비\"에 대한 정보를 찾을 수 없습니다. \n\n근거: 해당 조항에는 암수술비에 대한 내용이 포함되어 있지 않습니다. \n\n주의사항: 추가적인 정보가 필요하시다면 다른 자료를 참고하시거나, 해당 보험사에 직접 문의하시기 바랍니다."
+    },
+    {
+      "query_id": "Q009",
+      "query": "삼성 재진단암",
+      "category": "amount",
+      "difficulty": "hard",
+      "status": "fail",
+      "latency_ms": 3269.62,
+      "num_results": 5,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "재진단"
+      ],
+      "expected_keywords": [
+        "재진단",
+        "2,000만원"
+      ],
+      "answer": "제공된 문서에서 \"삼성 재진단암\"에 대한 정보는 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다.\n근거: [제공된 조항 없음]\n주의사항: 재진단암에 대한 구체적인 내용은 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q010",
+      "query": "롯데 유사암",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 6237.94,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "유사암",
+        "30만원"
+      ],
+      "expected_keywords": [
+        "유사암",
+        "30만원"
+      ],
+      "answer": "제공된 문서에서 \"롯데 유사암\"에 대한 구체적인 정보는 찾을 수 없습니다. \n\n제공된 조항에는 갑상선암·기타피부암·유사암에 대한 수술비와 진단비에 대한 내용이 포함되어 있습니다. \n\n- 갑상선암·기타피부암·유사암 수술비(매회): 💰 보장금액: **30만원** ([1], [3], [5])\n- 갑상선암·기타피부암·유사암 진단비: 💰 보장금액: **600만원** ([4])\n\n이와 같은 정보가 필요하신 경우, 추가적인 질문을 주시면 더 도와드리겠습니다. \n\n근거: [1], [3], [4], [5]\n주의사항: \"롯데 유사암\"에 대한 구체적인 상품명이나 보장 내용은 제공된 문서에서 확인할 수 없습니다."
+    },
+    {
+      "query_id": "Q011",
+      "query": "한화 골절진단 10만원",
+      "category": "amount",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 3303.78,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "골절",
+        "10만원"
+      ],
+      "expected_keywords": [
+        "골절",
+        "10만원"
+      ],
+      "answer": "답변: 골절(치아파절제외)진단비의 가입금액은 💰 보장금액: **10만원**입니다. 이 보장은 골절 진단 시 지급되는 금액입니다.\n\n근거: [2] None 골절(치아파절제외)진단비, 출처: proposal (한화) - 페이지 3\n\n주의사항: 치아 파절은 보장 대상에서 제외됩니다."
+    },
+    {
+      "query_id": "Q012",
+      "query": "DB 항암치료비 300만원",
+      "category": "amount",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 5438.22,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "항암",
+        "300만원"
+      ],
+      "expected_keywords": [
+        "항암",
+        "300만원"
+      ],
+      "answer": "답변: 항암치료비에 대한 정보는 다음과 같습니다. \n- 담보명: 항암방사선약물치료비(유사암포함)\n- 💰 보장금액: **300만원** (300만원)\n- 가입금액: 3백만원\n\n이 보장은 항암방사선약물치료비에 해당하며, 유사암도 포함됩니다.\n\n근거: [1] 항암방사선약물치료비(유사암포함) 출처: proposal (DB) - 페이지 4\n\n주의사항: 이 보장은 치료에 대한 비용을 보장하는 것이며, 특정 조건이나 제한이 있을 수 있습니다."
+    },
+    {
+      "query_id": "Q013",
+      "query": "롯데 여성용 암 진단 보장",
+      "category": "gender",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2825.98,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "여성",
+        "암"
+      ],
+      "expected_keywords": [
+        "여성",
+        "암"
+      ],
+      "answer": "제공된 문서에서 롯데 여성용 암 진단 보장에 대한 구체적인 정보는 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q014",
+      "query": "롯데 남성 뇌출혈 보장금액",
+      "category": "gender",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 5471.94,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "남성",
+        "뇌출혈"
+      ],
+      "expected_keywords": [
+        "남성",
+        "뇌출혈"
+      ],
+      "answer": "답변: 롯데의 뇌출혈진단비 보장금액은 **1,000만원**입니다. 이 정보는 다음 조항에서 확인할 수 있습니다: \"가입금액: 1,000만원\" [1] 및 [2]에서 동일한 금액이 명시되어 있습니다.\n\n근거: [1], [2] (proposal (롯데) - 페이지 8)\n\n주의사항: 제공된 문서에서 남성에 대한 특정 보장 내용은 명시되어 있지 않으므로, 일반적인 뇌출혈진단비에 대한 정보로 답변하였습니다."
+    },
+    {
+      "query_id": "Q015",
+      "query": "롯데 여성 심근경색 보험료",
+      "category": "gender",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2562.12,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "여성",
+        "심근경색"
+      ],
+      "expected_keywords": [
+        "여성",
+        "심근경색"
+      ],
+      "answer": "제공된 문서에서 롯데 여성 심근경색 보험료에 대한 정보를 찾을 수 없습니다. \n\n근거: 제공된 조항 번호와 문서 정보 없음\n주의사항: 롯데 여성 심근경색 보험료에 대한 구체적인 내용은 제공된 자료에 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q016",
+      "query": "롯데 남성 암수술비",
+      "category": "gender",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 1649.65,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "남성",
+        "암"
+      ],
+      "expected_keywords": [
+        "남성",
+        "암"
+      ],
+      "answer": "제공된 문서에서 \"롯데 남성 암수술비\"에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q017",
+      "query": "롯데 여성 골절진단비",
+      "category": "gender",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 2762.34,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "여성",
+        "골절"
+      ],
+      "expected_keywords": [
+        "여성",
+        "골절"
+      ],
+      "answer": "답변: 제공된 문서에서 롯데 여성 골절진단비에 대한 정보를 찾을 수 없습니다.  \n근거: [제공된 조항]  \n주의사항: 해당 상품에 대한 정보가 포함되어 있지 않으므로, 추가적인 세부사항을 제공할 수 없습니다."
+    },
+    {
+      "query_id": "Q018",
+      "query": "롯데 남성 입원비",
+      "category": "gender",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 3338.91,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "남성",
+        "입원"
+      ],
+      "expected_keywords": [
+        "남성",
+        "입원"
+      ],
+      "answer": "제공된 문서에서 \"롯데 남성 입원비\"에 대한 구체적인 정보는 찾을 수 없습니다. \n\n제공된 조항에는 상해입원비와 암직접입원비, 질병입원비에 대한 내용이 포함되어 있지만, 특정적으로 \"남성 입원비\"라는 항목은 없습니다. \n\n따라서, \"제공된 문서에서 해당 정보를 찾을 수 없습니다\"라고 말씀드리겠습니다."
+    },
+    {
+      "query_id": "Q019",
+      "query": "DB 40세 이하 가입 가능 상품",
+      "category": "age",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 1674.71,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "40세",
+        "이하"
+      ],
+      "expected_keywords": [
+        "40세",
+        "이하"
+      ],
+      "answer": "제공된 문서에서 40세 이하 가입 가능 상품에 대한 정보는 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q020",
+      "query": "DB 41세 이상 암보장",
+      "category": "age",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 1287.71,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "41세",
+        "암"
+      ],
+      "expected_keywords": [
+        "41세",
+        "암"
+      ],
+      "answer": "제공된 문서에서 \"DB 41세 이상 암보장\"에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q021",
+      "query": "DB 40세 이하 뇌출혈",
+      "category": "age",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 1805.08,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "40세",
+        "뇌출혈"
+      ],
+      "expected_keywords": [
+        "40세",
+        "뇌출혈"
+      ],
+      "answer": "제공된 문서에서 \"DB 40세 이하 뇌출혈\"에 대한 정보를 찾을 수 없습니다. 따라서 해당 질문에 대한 답변을 드릴 수 없습니다."
+    },
+    {
+      "query_id": "Q022",
+      "query": "DB 41세 이상 수술비",
+      "category": "age",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2053.5,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "41세",
+        "수술"
+      ],
+      "expected_keywords": [
+        "41세",
+        "수술"
+      ],
+      "answer": "제공된 문서에서 41세 이상 수술비에 대한 정보는 찾을 수 없습니다. \n\n근거: 제공된 조항 번호와 문서 정보 없음\n주의사항: 추가적인 정보가 필요하다면 다른 자료를 참고하시기 바랍니다."
+    },
+    {
+      "query_id": "Q023",
+      "query": "삼성화재 암 보장 내용",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 12253.73,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "삼성",
+        "암"
+      ],
+      "expected_keywords": [
+        "삼성",
+        "암"
+      ],
+      "answer": "| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 삼성 | 암 진단비(유사암 제외) | 암 진단비 | 3,000만원 | 유사암 제외, 최초 1회 지급 |\n| 삼성 | 암 수술비(유사암 제외) | 암 수술비 | 500만원 | 유사암 제외, 직접 치료 목적 수술 시 지급 |\n| 삼성 | 유사암 진단비(기타피부암)(1년50%) | 유사암 진단비 | 600만원 | 기타피부암에 대해 1년 이내 50% 지급 |\n\n### 세부 설명\n1. **암 진단비(유사암 제외)**: \n   - 💰 보장금액: **3,000만원**입니다. 이 금액은 암(유사암 제외)으로 진단 확정된 경우 최초 1회 지급됩니다. 보장개시일은 계약일 또는 부활일로부터 90일이 지난 날의 다음날입니다. \n   - 근거: [1], [2]\n\n2. **암 수술비(유사암 제외)**: \n   - 💰 보장금액: **500만원**입니다. 이 금액은 암(유사암 제외)으로 진단된 후, 그 암의 직접적인 치료를 목적으로 수술을 받은 경우 지급됩니다. \n   - 근거: [3], [4]\n\n3. **유사암 진단비(기타피부암)(1년50%)**: \n   - 💰 보장금액: **600만원**입니다. 이 보장은 기타피부암에 대해 1년 이내에 진단된 경우 50% 지급됩니다.\n   - 근거: [5]\n\n주의사항: 유사암은 기타피부암, 갑상선암, 대장점막내암, 제자리암 및 경계성종양을 포함하지 않으며, 이들에 대한 보장은 제외됩니다."
+    },
+    {
+      "query_id": "Q024",
+      "query": "한화 뇌출혈 담보",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 6342.05,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "한화",
+        "뇌출혈"
+      ],
+      "expected_keywords": [
+        "한화",
+        "뇌출혈"
+      ],
+      "answer": "답변: 제공된 문서에서 \"한화 뇌출혈 담보\"에 대한 정보를 찾을 수 없습니다. 뇌혈관질환 관련 담보는 [1] 뇌혈관질환진단비, [3] 뇌혈관질환수술비, [4] 허혈성심장질환진단비, [5] 뇌졸중진단비로 확인되지만, 뇌출혈에 대한 구체적인 내용은 포함되어 있지 않습니다.\n\n근거: 제공된 조항 번호와 문서 정보\n\n주의사항: 뇌출혈은 뇌혈관질환의 일종으로, 관련된 담보가 있을 수 있으나, 명시적으로 언급된 내용이 없으므로 확인이 필요합니다."
+    },
+    {
+      "query_id": "Q025",
+      "query": "메리츠 급성심근경색 보험",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 4093.06,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "메리츠",
+        "심근경색"
+      ],
+      "expected_keywords": [
+        "메리츠",
+        "심근경색"
+      ],
+      "answer": "답변: 제공된 문서에서 메리츠의 급성심근경색 보험에 대한 정보는 찾을 수 없습니다. 급성심근경색에 대한 보장 내용이나 금액에 대한 조항이 포함되어 있지 않습니다.\n\n근거: 제공된 조항 목록\n\n주의사항: 급성심근경색 보험에 대한 정보는 제공된 문서에 포함되어 있지 않으므로, 추가적인 자료나 문의가 필요할 수 있습니다."
+    },
+    {
+      "query_id": "Q026",
+      "query": "KB 수술비 보장",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 6565.9,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "KB",
+        "수술"
+      ],
+      "expected_keywords": [
+        "KB",
+        "수술"
+      ],
+      "answer": "제공된 문서에서 KB 수술비 보장에 대한 정보는 다음과 같습니다.\n\nKB 수술비 보장은 특정경증질환 및 특정7대질병을 제외한 질병수술비에 대해 적용됩니다. 동시에 두 종류 이상의 질병 수술을 받은 경우에는 수술 1회로 간주하여 1회의 질병수술비만 지급됩니다. 또한, 건강검진, 예방접종, 영양제, 비타민제, 호르몬 투여 등은 보장되지 않습니다. 다만, 국민건강보험의 요양급여 기준에 해당하는 성조숙증을 치료하기 위한 호르몬 투여는 보장됩니다.\n\n💰 보장금액: **N,NNN만원**에 대한 정보는 제공된 조항에서 찾을 수 없습니다.\n\n근거: [1], [2], [5] (KB 닥터플러스 건강보험 약관)\n\n주의사항: 제공된 문서에서 특정 보장금액에 대한 정보는 확인할 수 없습니다."
+    },
+    {
+      "query_id": "Q027",
+      "query": "흥국 입원비",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 2689.46,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "흥국",
+        "입원"
+      ],
+      "expected_keywords": [
+        "흥국",
+        "입원"
+      ],
+      "answer": "답변: 제공된 문서에서 흥국 입원비에 대한 정보를 찾을 수 없습니다.  \n근거: [제공된 조항]  \n주의사항: 입원비에 대한 구체적인 내용은 포함되어 있지 않으므로, 추가적인 정보가 필요할 경우 다른 자료를 참고하시기 바랍니다."
+    },
+    {
+      "query_id": "Q028",
+      "query": "현대 암진단비",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 9527.98,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "현대",
+        "암"
+      ],
+      "expected_keywords": [
+        "현대",
+        "암"
+      ],
+      "answer": "제공된 문서에서 현대 암진단비에 대한 정보는 다음과 같습니다.\n\n| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 현대 | 암진단Ⅱ(유사암제외)담보 | 암 진단 | 3,000만원 | [1] 유사암 제외 |\n| 현대 | 고액치료비암진단담보 | 암 진단 | 1,000만원 | [4] |\n| 현대 | 재진단암진단Ⅱ담보 | 재진단 암 | 1,000만원 | [5] |\n\n### 세부 설명\n1. **암진단Ⅱ(유사암제외)담보**: 이 상품은 유사암을 제외한 암 진단 시 보장받을 수 있으며, 보장금액은 💰 보장금액: **3,000만원**입니다. (조항 [1])\n2. **고액치료비암진단담보**: 암 진단 시 고액 치료비를 보장하며, 보장금액은 💰 보장금액: **1,000만원**입니다. (조항 [4])\n3. **재진단암진단Ⅱ담보**: 재진단된 암에 대해 보장하며, 보장금액은 💰 보장금액: **1,000만원**입니다. (조항 [5])\n\n이 정보는 현대 보험의 암 진단 관련 상품에 대한 것입니다. 추가적인 질문이 있으시면 말씀해 주세요."
+    },
+    {
+      "query_id": "Q029",
+      "query": "롯데 골절진단",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 2469.94,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "롯데",
+        "골절"
+      ],
+      "expected_keywords": [
+        "롯데",
+        "골절"
+      ],
+      "answer": "답변: 제공된 문서에서 롯데 골절진단에 대한 정보를 찾을 수 없습니다.  \n근거: [제공된 조항]  \n주의사항: 골절진단에 대한 보장 내용은 포함되어 있지 않으므로, 추가적인 정보가 필요합니다."
+    },
+    {
+      "query_id": "Q030",
+      "query": "DB 뇌졸중 보장",
+      "category": "basic",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 1835.04,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "DB",
+        "뇌졸중"
+      ],
+      "expected_keywords": [
+        "DB",
+        "뇌졸중"
+      ],
+      "answer": "제공된 문서에서 \"DB 뇌졸중 보장\"에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q031",
+      "query": "삼성 유사암 보장",
+      "category": "basic",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 4835.14,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "삼성",
+        "유사암"
+      ],
+      "expected_keywords": [
+        "삼성",
+        "유사암"
+      ],
+      "answer": "제공된 문서에서 삼성의 유사암 보장에 대한 정보는 다음과 같습니다.\n\n삼성의 유사암 보장은 \"유사암 진단비(기타피부암)(1년50%)\"로, 가입금액은 600만원입니다. 이 보장은 유사암으로 진단받았을 때 지급되는 진단비입니다. \n\n💰 보장금액: **600만원**\n\n또한, 유사암의 정의에는 기타피부암, 갑상선암, 대장점막내암, 제자리암 및 경계성종양이 포함됩니다. \n\n답변: 삼성의 유사암 보장은 유사암 진단비로, 가입금액은 600만원입니다.\n- 근거: [1]\n- 주의사항: 유사암의 범위에 포함되는 암종에 대한 이해가 필요합니다."
+    },
+    {
+      "query_id": "Q032",
+      "query": "한화 재진단암",
+      "category": "basic",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2513.59,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "한화",
+        "재진단"
+      ],
+      "expected_keywords": [
+        "한화",
+        "재진단"
+      ],
+      "answer": "제공된 문서에서 \"한화 재진단암\"에 대한 정보를 찾을 수 없습니다. \n\n근거: 제공된 조항에는 해당 내용이 포함되어 있지 않습니다. \n\n주의사항: 추가적인 정보가 필요하다면 다른 자료를 참고하시기 바랍니다."
+    },
+    {
+      "query_id": "Q033",
+      "query": "삼성과 DB 암 진단금 비교",
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 6341.38,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "삼성",
+        "DB",
+        "암"
+      ],
+      "expected_keywords": [
+        "삼성",
+        "DB",
+        "암"
+      ],
+      "answer": "제공된 문서에서 DB 보험에 대한 정보는 찾을 수 없습니다. 따라서 삼성 보험의 암 진단비에 대한 정보만 제공하겠습니다.\n\n| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 삼성 | 암 진단비(유사암 제외) | 암 진단비 | 3,000만원 | 유사암 제외 |\n\n### 삼성 보험 세부 설명\n- **상품명**: 암 진단비(유사암 제외)\n- **보장 내용**: 암(유사암 제외)으로 진단 확정된 경우 가입금액 지급 (최초 1회 한정)\n- **💰 보장금액**: **3,000만원**\n- **특이사항**: 유사암은 기타피부암, 갑상선암, 대장점막내암, 제자리암, 경계성종양을 포함하지 않음.\n\n제공된 문서에서 DB 보험에 대한 정보는 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q034",
+      "query": "롯데와 한화 뇌출혈 보장 차이",
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 3297.54,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "롯데",
+        "한화",
+        "뇌출혈"
+      ],
+      "expected_keywords": [
+        "롯데",
+        "한화",
+        "뇌출혈"
+      ],
+      "answer": "제공된 문서에서 롯데와 한화의 뇌출혈 보장 차이에 대한 정보는 찾을 수 없습니다. 따라서, 해당 정보를 제공할 수 없습니다.\n\n근거: 제공된 조항 번호와 문서 정보 없음\n주의사항: 추가적인 정보가 필요하시다면, 다른 자료를 참고하시거나 직접 보험사에 문의하시기 바랍니다."
+    },
+    {
+      "query_id": "Q035",
+      "query": "메리츠 KB 수술비 비교",
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "fail",
+      "latency_ms": 8108.61,
+      "num_results": 5,
+      "keyword_match_rate": 0.67,
+      "matched_keywords": [
+        "메리츠",
+        "수술"
+      ],
+      "expected_keywords": [
+        "메리츠",
+        "KB",
+        "수술"
+      ],
+      "answer": "제공된 조항을 바탕으로 메리츠의 수술비 관련 상품을 비교한 표는 다음과 같습니다:\n\n| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 메리츠 | 암수술비(유사암제외) | 암 수술비 | 500만원 | [1] 유사암 제외 |\n| 메리츠 | 허혈성심장질환수술비 | 심장 질환 수술비 | 500만원 | [2] - |\n| 메리츠 | 신화상치료비(화상수술비) | 화상 수술비 | 20만원 | [5] - |\n\n### 세부 설명\n1. **암수술비(유사암제외)**: 이 상품은 암 수술에 대한 보장을 제공하며, 보장금액은 💰 보장금액: **500만원**입니다. 유사암은 제외됩니다. [1]\n   \n2. **허혈성심장질환수술비**: 이 상품은 허혈성 심장 질환에 대한 수술비를 보장하며, 보장금액은 💰 보장금액: **500만원**입니다. [2]\n\n3. **신화상치료비(화상수술비)**: 이 상품은 화상 수술에 대한 보장을 제공하며, 보장금액은 💰 보장금액: **20만원**입니다. [5]\n\n제공된 문서에서 메리츠의 다른 수술비 상품에 대한 정보는 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q036",
+      "query": "현대 흥국 암보험 월 보험료",
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 1999.99,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "현대",
+        "흥국",
+        "보험료"
+      ],
+      "expected_keywords": [
+        "현대",
+        "흥국",
+        "보험료"
+      ],
+      "answer": "제공된 문서에서 현대 흥국 암보험의 월 보험료에 대한 정보를 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q037",
+      "query": "삼성 롯데 심근경색 보장금액 차이",
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 2363.77,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "삼성",
+        "롯데",
+        "심근경색"
+      ],
+      "expected_keywords": [
+        "삼성",
+        "롯데",
+        "심근경색"
+      ],
+      "answer": "제공된 문서에서 삼성과 롯데의 심근경색 보장금액에 대한 정보는 확인할 수 없습니다. 따라서, \"제공된 문서에서 해당 정보를 찾을 수 없습니다\"라고 답변드립니다.\n\n근거: 제공된 조항 번호와 문서 정보 없음\n주의사항: 롯데 보험에 대한 정보는 제공되지 않았습니다."
+    },
+    {
+      "query_id": "Q038",
+      "query": "DB 한화 입원비 비교",
+      "category": "comparison",
+      "difficulty": "medium",
+      "status": "fail",
+      "latency_ms": 7738.2,
+      "num_results": 5,
+      "keyword_match_rate": 0.67,
+      "matched_keywords": [
+        "한화",
+        "입원"
+      ],
+      "expected_keywords": [
+        "DB",
+        "한화",
+        "입원"
+      ],
+      "answer": "제공된 조항을 바탕으로 한화 입원비 비교는 다음과 같습니다.\n\n| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 한화 | 질병입원일당 | 질병으로 인한 입원 | 1만원 | [1], [2] |\n| 한화 | 암직접치료입원일당Ⅱ | 암 치료로 인한 입원 | 2만원 | [3], [4] |\n| 한화 | 상해입원일당 | 상해로 인한 입원 | 1만원 | [5] |\n\n### 세부 설명\n1. **질병입원일당**: 질병으로 입원 시 하루에 대해 1만원을 보장합니다. 이 보장은 최대 180일 동안 적용됩니다. (조항 [1], [2])\n2. **암직접치료입원일당Ⅱ**: 암 치료를 위해 입원할 경우 하루에 2만원을 보장합니다. 이 보장 역시 최대 180일 동안 적용됩니다. (조항 [3], [4])\n3. **상해입원일당**: 상해로 인해 입원 시 하루에 1만원을 보장합니다. 이 보장도 최대 180일 동안 적용됩니다. (조항 [5]) \n\n이 정보를 통해 한화의 입원비 보장 내용을 비교할 수 있습니다."
+    },
+    {
+      "query_id": "Q039",
+      "query": "삼성 암 면책기간",
+      "category": "condition",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2920.65,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "면책",
+        "기간"
+      ],
+      "expected_keywords": [
+        "면책",
+        "기간"
+      ],
+      "answer": "제공된 문서에서 삼성 암 면책기간에 대한 정보를 찾을 수 없습니다. \n\n근거: 제공된 조항 번호와 문서 정보 없음\n주의사항: 면책기간에 대한 정보는 일반적으로 보험 약관에 포함되지만, 제공된 조항에는 해당 내용이 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q040",
+      "query": "한화 뇌출혈 감액 조건",
+      "category": "condition",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2058.26,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "감액",
+        "조건"
+      ],
+      "expected_keywords": [
+        "감액",
+        "조건"
+      ],
+      "answer": "제공된 문서에서 한화 뇌출혈 감액 조건에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q041",
+      "query": "롯데 암 가입조건",
+      "category": "condition",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 2089.5,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "가입",
+        "조건"
+      ],
+      "expected_keywords": [
+        "가입",
+        "조건"
+      ],
+      "answer": "제공된 문서에서 롯데 암 가입조건에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q042",
+      "query": "메리츠 수술 지급 제한",
+      "category": "condition",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 2365.17,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "지급",
+        "제한"
+      ],
+      "expected_keywords": [
+        "지급",
+        "제한"
+      ],
+      "answer": "제공된 문서에서 메리츠의 수술 지급 제한에 대한 정보는 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다.\n근거: 해당 정보 없음\n주의사항: 수술 지급 제한에 대한 구체적인 내용은 문서에 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q043",
+      "query": "삼성 암보험 월 보험료",
+      "category": "premium",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 1753.95,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "보험료",
+        "월"
+      ],
+      "expected_keywords": [
+        "보험료",
+        "월"
+      ],
+      "answer": "제공된 문서에서 삼성 암보험의 월 보험료에 대한 정보를 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q044",
+      "query": "롯데 여성 암진단 보험료",
+      "category": "premium",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 3070.86,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "여성",
+        "보험료"
+      ],
+      "expected_keywords": [
+        "여성",
+        "보험료"
+      ],
+      "answer": "제공된 문서에서 롯데 여성 암진단 보험료에 대한 정보는 찾을 수 없습니다. \n\n제공된 조항에는 롯데의 재진단암진단비와 일반암진단비Ⅱ에 대한 정보가 포함되어 있지만, 여성 암진단 보험료에 대한 구체적인 내용은 없습니다. \n\n따라서, \"제공된 문서에서 해당 정보를 찾을 수 없습니다\"라고 말씀드립니다."
+    },
+    {
+      "query_id": "Q045",
+      "query": "보험 없는 회사 검색",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 1943.86,
+      "num_results": 5,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "없습니다"
+      ],
+      "expected_keywords": [
+        "없습니다",
+        "검색 결과"
+      ],
+      "answer": "제공된 문서에서 \"보험 없는 회사 검색\"에 대한 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q046",
+      "query": "1억원 암 진단금",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "status": "success",
+      "latency_ms": 1209.96,
+      "num_results": 0,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "없"
+      ],
+      "expected_keywords": [
+        "1억",
+        "없"
+      ],
+      "answer": "제공된 문서에서 해당 정보를 찾을 수 없습니다."
+    },
+    {
+      "query_id": "Q047",
+      "query": "삼성 자동차보험",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "status": "success",
+      "latency_ms": 2715.51,
+      "num_results": 2,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "자동차",
+        "없"
+      ],
+      "expected_keywords": [
+        "자동차",
+        "없"
+      ],
+      "answer": "제공된 조항에서 삼성 자동차보험에 대한 구체적인 정보는 찾을 수 없습니다. \n\n답변: 제공된 문서에서 해당 정보를 찾을 수 없습니다.  \n근거: [1], [2]  \n주의사항: 삼성 자동차보험에 대한 구체적인 보장 내용이나 금액은 제공된 조항에 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q048",
+      "query": "모든 보험사 비교",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "status": "fail",
+      "latency_ms": 2859.99,
+      "num_results": 5,
+      "keyword_match_rate": 0.5,
+      "matched_keywords": [
+        "보험사"
+      ],
+      "expected_keywords": [
+        "8개",
+        "보험사"
+      ],
+      "answer": "제공된 문서에서 모든 보험사에 대한 비교 정보를 찾을 수 없습니다. 각 보험사의 상품, 보장 내용, 보장 금액 및 특이사항에 대한 구체적인 정보는 포함되어 있지 않습니다. \n\n따라서, \"모든 보험사 비교\"에 대한 답변을 드릴 수 없습니다. 추가적인 정보가 필요하시다면 다른 자료를 참고하시기 바랍니다."
+    },
+    {
+      "query_id": "Q049",
+      "query": "가장 저렴한 암보험",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 2277.34,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "저렴",
+        "암"
+      ],
+      "expected_keywords": [
+        "저렴",
+        "암"
+      ],
+      "answer": "제공된 문서에서 \"가장 저렴한 암보험\"에 대한 정보는 찾을 수 없습니다. 따라서, 해당 정보를 제공할 수 없습니다.\n\n근거: 제공된 조항 번호와 문서 정보 없음\n주의사항: 보험 상품의 가격이나 비교에 대한 정보는 제공된 조항에 포함되어 있지 않습니다."
+    },
+    {
+      "query_id": "Q050",
+      "query": "가장 비싼 뇌출혈 보장",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "status": "success",
+      "latency_ms": 5457.86,
+      "num_results": 5,
+      "keyword_match_rate": 1.0,
+      "matched_keywords": [
+        "뇌출혈",
+        "보장"
+      ],
+      "expected_keywords": [
+        "뇌출혈",
+        "보장"
+      ],
+      "answer": "| 보험사 | 상품 | 보장 내용 | 보장 금액 | 특이사항 |\n|--------|------|-----------|-----------|----------|\n| 흥국 | 뇌출혈진단비 | 뇌출혈 진단비 | 1,000만원 | [1] 20년납 100세만기 |\n| 롯데 | 121 뇌출혈진단비 | 뇌출혈 진단비 | 1,000만원 | [2] 20년/100세 |\n| 삼성 | 뇌출혈 진단비 | 뇌출혈 진단비 | 1,000만원 | [4] 20년납 100세만기 |\n\n답변: 가장 비싼 뇌출혈 보장은 없습니다. 제공된 모든 상품의 보장금액이 동일하게 **1,000만원**입니다. \n\n근거: [1], [2], [4] \n\n주의사항: 모든 상품의 보장금액이 동일하므로, 가격이나 보험료에 따라 선택할 수 있습니다."
+    }
+  ]
+}
