@@ -23,6 +23,9 @@ import logging
 import argparse
 from dotenv import load_dotenv
 
+# Form parser for key-value extraction from merged cell tables
+from ingestion.parsers.form_parser import is_form_table, parse_form_table
+
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -277,6 +280,73 @@ class ProposalPlanExtractor:
 
         return tables
 
+    def _extract_from_form_table(self, rows: List[List[str]], plan_data: Dict) -> Dict:
+        """
+        Extract plan metadata from form-style table using FormParser
+
+        Args:
+            rows: Table data (list of rows)
+            plan_data: Existing plan_data dict to update
+
+        Returns:
+            Updated plan_data dict
+        """
+        form_result = parse_form_table(rows)
+        fields = form_result.get('fields', {})
+
+        # Field name mapping: form field -> plan_data key
+        # Handle various field name variations
+        field_mappings = {
+            # Gender extraction
+            'target_gender': [
+                ('피보험자', lambda v: 'male' if re.search(r'\d{6}-[13]', v) else ('female' if re.search(r'\d{6}-[24]', v) else None)),
+                ('피 보 험 자', lambda v: 'male' if re.search(r'\d{6}-[13]', v) else ('female' if re.search(r'\d{6}-[24]', v) else None)),
+            ],
+            # Age extraction
+            'target_age': [
+                ('피보험자', lambda v: int(m.group(1)) if (m := re.search(r'(\d+)\s*세', v)) else None),
+                ('피 보 험 자', lambda v: int(m.group(1)) if (m := re.search(r'(\d+)\s*세', v)) else None),
+            ],
+            # Insurance period
+            'insurance_period': [
+                ('만기', lambda v: f"{m.group(1)}세만기" if (m := re.search(r'(\d+)\s*세', v)) else v),
+                ('만기/납기', lambda v: f"{m.group(1)}세만기" if (m := re.search(r'(\d+)\s*세만기', v)) else None),
+                ('가입조건_만기/납기', lambda v: f"{m.group(1)}세만기" if (m := re.search(r'(\d+)\s*세만기', v)) else None),
+            ],
+            # Payment period
+            'payment_period': [
+                ('납기', lambda v: f"{m.group(1)}년납" if (m := re.search(r'(\d+)\s*년', v)) else v),
+                ('만기/납기', lambda v: f"{m.group(1)}년납" if (m := re.search(r'(\d+)\s*년납', v)) else None),
+                ('가입조건_만기/납기', lambda v: f"{m.group(1)}년납" if (m := re.search(r'(\d+)\s*년납', v)) else None),
+            ],
+            # Total premium
+            'total_premium': [
+                ('보장보험료', lambda v: float(v.replace(',', '').replace('원', '')) if re.search(r'[\d,]+', v) else None),
+                ('보험료', lambda v: float(m.group(0).replace(',', '')) if (m := re.search(r'[\d,]+', v)) else None),
+                ('합계', lambda v: float(m.group(0).replace(',', '')) if (m := re.search(r'[\d,]+', v)) else None),
+            ],
+        }
+
+        for plan_key, mappings in field_mappings.items():
+            if plan_data[plan_key]:  # Skip if already set
+                continue
+
+            for field_name, extractor in mappings:
+                # Check both exact match and partial match
+                for form_field, form_value in fields.items():
+                    if field_name in form_field:
+                        try:
+                            extracted = extractor(form_value)
+                            if extracted:
+                                plan_data[plan_key] = extracted
+                                break
+                        except:
+                            pass
+                if plan_data[plan_key]:
+                    break
+
+        return plan_data
+
     def _extract_plan_metadata(self, tables: List[Dict], doc: Dict) -> Optional[Dict]:
         """
         Extract plan metadata from tables
@@ -306,7 +376,14 @@ class ProposalPlanExtractor:
                 elif '≥' in age_range:
                     plan_data['target_age'] = int(re.search(r'\d+', age_range).group())
 
-        # Extract from tables
+        # Try form parser first for tables with merged cells (form-style)
+        for table in tables:
+            rows = table['rows']
+            if is_form_table(rows):
+                logger.debug(f"Found form table at page {table.get('page', '?')}, using FormParser")
+                plan_data = self._extract_from_form_table(rows, plan_data)
+
+        # Extract from tables (fallback regex-based extraction)
         for table in tables:
             rows = table['rows']
 
