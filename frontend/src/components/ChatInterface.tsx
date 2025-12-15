@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message as MessageType, QueryTemplate } from '../types';
 import Message from './Message';
-import { hybridSearch } from '../services/api';
+import { hybridSearch, getErrorMessage } from '../services/api';
 import InfoQueryBuilder from './InfoQueryBuilder';
 import { categoryMetadata } from '../data/queryTemplates';
 
@@ -29,6 +29,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [lastCoverage, setLastCoverage] = useState<string | null>(null);
   const [showReturnButton, setShowReturnButton] = useState(false);
+  const [lastFailedQuery, setLastFailedQuery] = useState<{ query: string; templateId?: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -101,17 +102,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     } catch (error) {
       console.error('Error calling API:', error);
 
+      const errorContent = getErrorMessage(error);
+
       const errorMessage: MessageType = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content:
-          '죄송합니다. 오류가 발생했습니다. 잠시 후 다시 시도해주세요.\n\n' +
-          '오류 상세: ' +
-          (error instanceof Error ? error.message : String(error)),
+        content: errorContent,
         timestamp: new Date(),
+        isError: true,
       };
 
       setMessages((prev) => [...prev, errorMessage]);
+      setLastFailedQuery({ query: userMessage.content, templateId: currentTemplate?.id });
     } finally {
       setIsLoading(false);
     }
@@ -130,6 +132,65 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setInput('');
     setCurrentTemplate(null);  // 템플릿도 초기화
     setShowReturnButton(false);  // 처음으로 버튼 숨기기
+    setLastFailedQuery(null);
+  };
+
+  // 재시도 핸들러
+  const handleRetry = async () => {
+    if (!lastFailedQuery) return;
+
+    // 마지막 에러 메시지 제거
+    setMessages((prev) => {
+      const newMessages = [...prev];
+      if (newMessages.length > 0 && newMessages[newMessages.length - 1].isError) {
+        newMessages.pop();
+      }
+      return newMessages;
+    });
+
+    setIsLoading(true);
+    setLastFailedQuery(null);
+
+    try {
+      const response = await hybridSearch({
+        query: lastFailedQuery.query,
+        lastCoverage: lastCoverage || undefined,
+        templateId: lastFailedQuery.templateId,
+        searchParams: currentTemplate?.searchParams,
+      });
+
+      const assistantMessage: MessageType = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.answer,
+        timestamp: new Date(),
+        comparisonTable: response.comparisonTable,
+        sources: response.sources,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      if (response.coverage) {
+        setLastCoverage(response.coverage);
+      }
+    } catch (error) {
+      console.error('Retry error:', error);
+
+      const errorContent = getErrorMessage(error);
+
+      const errorMessage: MessageType = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: errorContent,
+        timestamp: new Date(),
+        isError: true,
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+      setLastFailedQuery({ query: lastFailedQuery.query, templateId: lastFailedQuery.templateId });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInfoQuerySubmit = async (query: string, templateId: string) => {
@@ -172,17 +233,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     } catch (error) {
       console.error('Error calling API:', error);
 
+      const errorContent = getErrorMessage(error);
+
       const errorMessage: MessageType = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content:
-          '죄송합니다. 오류가 발생했습니다. 잠시 후 다시 시도해주세요.\n\n' +
-          '오류 상세: ' +
-          (error instanceof Error ? error.message : String(error)),
+        content: errorContent,
         timestamp: new Date(),
+        isError: true,
       };
 
       setMessages((prev) => [...prev, errorMessage]);
+      setLastFailedQuery({ query, templateId });
 
       // 에러 발생 시에도 "처음으로" 버튼 표시
       setShowReturnButton(true);
@@ -231,6 +293,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     아래 입력창에서 질문을 수정하거나 바로 전송해주세요.
                   </p>
                 </>
+              ) : selectedCategory === '자유 질문' ? (
+                <>
+                  <div className="text-4xl mb-4">🔍</div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    자유 질문
+                  </h2>
+                  <p className="text-gray-400 mb-4">
+                    보험 약관, 보장 조건, 면책사항 등 궁금한 내용을 자유롭게 질문하세요.
+                  </p>
+                  <div className="bg-gray-800 p-4 rounded-lg text-left mb-4">
+                    <div className="text-sm text-gray-400 mb-2">질문 예시:</div>
+                    <ul className="text-white space-y-1 text-sm">
+                      <li>• 암의 정의가 뭔가요?</li>
+                      <li>• 암보험에서 보장하지 않는 경우는?</li>
+                      <li>• 수술의 범위가 어떻게 되나요?</li>
+                      <li>• 갱신 시 보험료는 어떻게 결정되나요?</li>
+                    </ul>
+                  </div>
+                  <p className="text-gray-500 text-sm">
+                    아래 입력창에 질문을 입력하세요.
+                  </p>
+                </>
               ) : (
                 <>
                   <div className="text-4xl mb-4">💬</div>
@@ -258,8 +342,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         ) : (
           <>
-            {messages.map((message) => (
-              <Message key={message.id} message={message} />
+            {messages.map((message, index) => (
+              <Message
+                key={message.id}
+                message={message}
+                onRetry={message.isError && index === messages.length - 1 ? handleRetry : undefined}
+              />
             ))}
             {isLoading && (
               <div className="py-6 px-4 bg-assistant-msg">
@@ -318,6 +406,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   ? "왼쪽에서 조회할 정보를 선택해주세요"
                   : selectedCategory === '상품 비교' && !currentTemplate
                   ? "왼쪽에서 비교할 담보를 선택해주세요"
+                  : selectedCategory === '자유 질문'
+                  ? "보험 관련 질문을 자유롭게 입력하세요... (예: 암의 정의가 뭔가요?)"
                   : "질문을 입력하세요... (Shift+Enter로 줄바꿈)"
               }
               className="w-full bg-gray-700 text-white rounded-lg px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"

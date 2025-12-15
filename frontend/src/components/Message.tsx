@@ -5,15 +5,17 @@ import ComparisonTable from './ComparisonTable';
 
 interface MessageProps {
   message: MessageType;
+  onRetry?: () => void;
 }
 
-const Message: React.FC<MessageProps> = ({ message }) => {
+const Message: React.FC<MessageProps> = ({ message, onRetry }) => {
   const isUser = message.role === 'user';
+  const isError = message.isError;
 
   return (
     <div
       className={`py-6 px-4 ${
-        isUser ? 'bg-user-msg' : 'bg-assistant-msg'
+        isUser ? 'bg-user-msg' : isError ? 'bg-red-900/20' : 'bg-assistant-msg'
       }`}
     >
       <div className="max-w-4xl mx-auto flex gap-6">
@@ -21,7 +23,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
         <div className="flex-shrink-0">
           <div
             className={`w-8 h-8 rounded-sm flex items-center justify-center ${
-              isUser ? 'bg-blue-600' : 'bg-green-600'
+              isUser ? 'bg-blue-600' : isError ? 'bg-red-600' : 'bg-green-600'
             }`}
           >
             {isUser ? (
@@ -36,6 +38,20 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                   strokeLinejoin="round"
                   strokeWidth={2}
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            ) : isError ? (
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
             ) : (
@@ -155,6 +171,19 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Error Retry Button */}
+          {isError && onRetry && (
+            <button
+              onClick={onRetry}
+              className="mt-4 px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              다시 시도
+            </button>
           )}
 
           {/* Timestamp */}

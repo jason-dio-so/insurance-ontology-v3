@@ -21,6 +21,7 @@ export interface Message {
   timestamp: Date;
   comparisonTable?: ComparisonResult[];
   sources?: Source[];
+  isError?: boolean;
 }
 
 export interface ComparisonResult {

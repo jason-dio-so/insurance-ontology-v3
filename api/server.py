@@ -28,6 +28,73 @@ from api.info_extractor import InfoExtractor
 
 load_dotenv()
 
+# ========== Company Name Mapping ==========
+# DB 회사명 → 표시명 매핑
+COMPANY_DISPLAY_NAMES = {
+    "삼성": "삼성화재",
+    "현대": "현대해상",
+    "DB": "DB손해보험",
+    "KB": "KB손해보험",
+    "한화": "한화손해보험",
+    "롯데": "롯데손해보험",
+    "메리츠": "메리츠화재",
+    "흥국": "흥국화재",
+}
+
+# 별칭 → DB 회사명 매핑 (NL Mapper와 동일)
+COMPANY_ALIASES = {
+    # 삼성
+    "삼성화재": "삼성", "삼성생명": "삼성", "삼성손보": "삼성", "삼성손해보험": "삼성",
+    # DB
+    "동부": "DB", "동부화재": "DB", "동부손보": "DB", "동부손해보험": "DB",
+    "DB손보": "DB", "DB손해보험": "DB", "DB화재": "DB",
+    # 현대
+    "현대해상": "현대", "현대생명": "현대", "현대손보": "현대", "현대손해보험": "현대",
+    # 한화
+    "한화손보": "한화", "한화손해보험": "한화", "한화생명": "한화", "한화화재": "한화",
+    # 롯데
+    "롯데손보": "롯데", "롯데손해보험": "롯데", "롯데화재": "롯데",
+    # KB
+    "KB손보": "KB", "KB손해보험": "KB", "KB생명": "KB", "KB화재": "KB",
+    # 메리츠
+    "메리츠화재": "메리츠", "메리츠손보": "메리츠", "메리츠손해보험": "메리츠",
+    # 흥국
+    "흥국화재": "흥국", "흥국생명": "흥국", "흥국손보": "흥국",
+}
+
+
+def resolve_company_name(name: str) -> str:
+    """별칭을 DB 회사명으로 변환"""
+    return COMPANY_ALIASES.get(name, name)
+
+
+def get_display_name(db_name: str) -> str:
+    """DB 회사명을 표시명으로 변환"""
+    return COMPANY_DISPLAY_NAMES.get(db_name, db_name)
+
+
+def normalize_coverage_name(name: str) -> str:
+    """
+    담보명 정규화 (중복 제거용)
+
+    Examples:
+        "뇌출혈진단비" -> "뇌출혈진단"
+        "뇌출혈 진단비" -> "뇌출혈진단"
+        "뇌출혈진단담보" -> "뇌출혈진단"
+    """
+    if not name:
+        return ""
+    # 공백 제거
+    normalized = name.replace(" ", "")
+    # 접미사 제거 (순서 중요: 긴 것부터)
+    suffixes = ["진단담보", "담보", "진단비", "비"]
+    for suffix in suffixes:
+        if normalized.endswith(suffix) and len(normalized) > len(suffix):
+            normalized = normalized[:-len(suffix)]
+            break
+    return normalized
+
+
 app = FastAPI(
     title="Insurance Ontology API",
     description="Hybrid RAG system for Korean insurance documents",
@@ -284,26 +351,30 @@ async def hybrid_search(request: HybridSearchRequest):
             gender = request.userProfile.gender
 
         # 2. NL Mapping: Extract entities from query
-        # 템플릿 기반 검색이면 템플릿 파라미터 우선 사용
+        # 항상 쿼리에서 엔티티 추출 먼저 수행
+        nl_entities = nl_mapper.extract_entities(request.query)
+        print(f"[DEBUG] NL entities from query: {nl_entities}")
+
+        # 템플릿 기반 검색이면 템플릿 파라미터를 폴백으로 사용
         if request.templateId and request.searchParams:
             print(f"[DEBUG] Template-based search: {request.templateId}")
 
-            # 전체 엔티티 추출 (keywords 포함)
-            temp_entities = nl_mapper.extract_entities(request.query)
+            # 쿼리에서 담보 추출 실패 시 keywords에서 담보 키워드 추출 시도
+            query_coverages = nl_entities.get("coverages", [])
+            if not query_coverages:
+                # keywords에서 담보 관련 키워드 추출
+                coverage_keyword_list = ["암진단", "수술", "입원", "통원", "치료비", "유사암", "제자리암", "경계성종양", "뇌졸중", "급성심근경색", "다빈치"]
+                query_keywords = nl_entities.get("keywords", [])
+                extracted_coverages = [kw for kw in query_keywords if kw in coverage_keyword_list]
 
-            nl_entities = {
-                "filters": {},
-                "companies": temp_entities.get("companies", []),
-                "coverages": [],
-                "keywords": temp_entities.get("keywords", [])  # 키워드 추출 추가
-            }
-            nl_entities["filters"]["company_id"] = temp_entities.get("filters", {}).get("company_id")
-
-            # 담보명은 템플릿에서 지정한 키워드로만 제한
-            if request.searchParams.coverageKeyword:
-                nl_entities["coverages"] = [request.searchParams.coverageKeyword]
-        else:
-            nl_entities = nl_mapper.extract_entities(request.query)
+                if extracted_coverages:
+                    print(f"[DEBUG] Extracted coverages from keywords: {extracted_coverages}")
+                    nl_entities["coverages"] = extracted_coverages
+                elif request.searchParams.coverageKeyword:
+                    print(f"[DEBUG] No coverages in query/keywords, falling back to template keyword: {request.searchParams.coverageKeyword}")
+                    nl_entities["coverages"] = [request.searchParams.coverageKeyword]
+            else:
+                print(f"[DEBUG] Using coverages from query: {query_coverages}")
 
         # 3. Enhance entities with user context
         if age:
@@ -319,13 +390,21 @@ async def hybrid_search(request: HybridSearchRequest):
         print(f"[DEBUG] NL entities: {nl_entities}")
         print(f"[DEBUG] Extracted companies: {company_names_in_query}")
 
+        # "전체 보험사" 또는 "전체"가 쿼리에 있으면 모든 회사로 확장
+        ALL_COMPANIES = list(COMPANY_DISPLAY_NAMES.keys())  # ['삼성', '현대', 'DB', 'KB', '한화', '롯데', '메리츠', '흥국']
+        if "전체 보험사" in request.query or "전체보험사" in request.query or (
+            "전체" in request.query and ("비교" in request.query or "암" in request.query)
+        ):
+            company_names_in_query = ALL_COMPANIES
+            print(f"[DEBUG] Expanded '전체 보험사' to all companies: {company_names_in_query}")
+
         # Extract coverage names from NL mapper first
         coverages_from_nl = nl_entities.get("coverages", [])
         print(f"[DEBUG] Extracted coverages: {coverages_from_nl}")
 
         # Clean and filter coverages: remove leading "- " or numbers, and deduplicate
         valid_coverages = []
-        seen = set()
+        seen_normalized = set()  # 정규화된 이름으로 중복 체크
         for c in coverages_from_nl:
             if not c:
                 continue
@@ -336,18 +415,21 @@ async def hybrid_search(request: HybridSearchRequest):
             # Skip if starts with number (likely ID)
             if cleaned and cleaned[0].isdigit():
                 continue
-            # Deduplicate
-            if cleaned not in seen:
-                valid_coverages.append(cleaned)
-                seen.add(cleaned)
+            # Deduplicate using normalized name
+            # 예: "뇌출혈진단비", "뇌출혈 진단비", "뇌출혈진단담보" -> 모두 "뇌출혈진단"으로 정규화
+            normalized = normalize_coverage_name(cleaned)
+            if normalized and normalized not in seen_normalized:
+                valid_coverages.append(cleaned)  # 원본 담보명 저장
+                seen_normalized.add(normalized)
 
         # Fallback: Extract coverage name from query (simple heuristic)
         if not valid_coverages:
-            coverage_keywords = ["암진단", "수술", "입원", "통원", "치료비", "유사암", "제자리암", "경계성종양"]
+            coverage_keywords = ["암진단", "수술", "입원", "통원", "치료비", "유사암", "제자리암", "경계성종양", "뇌졸중", "급성심근경색", "다빈치"]
             for keyword in coverage_keywords:
-                if keyword in request.query:
-                    valid_coverages = [keyword]
-                    break
+                if keyword in request.query and keyword not in valid_coverages:
+                    valid_coverages.append(keyword)
+            if valid_coverages:
+                print(f"[DEBUG] Fallback extracted coverages: {valid_coverages}")
 
         # If still not found, use lastCoverage from previous conversation
         if not valid_coverages and request.lastCoverage:
@@ -499,9 +581,30 @@ async def hybrid_search(request: HybridSearchRequest):
                 answer_parts = []
                 comparison_table_data = []
 
+                # Improve section title using query keywords when coverage is generic
+                def get_display_title(cov: str, keywords: list, query: str = "") -> str:
+                    """쿼리 키워드를 활용해 더 구체적인 제목 생성"""
+                    generic_terms = ["암수술담보", "암진단담보", "진단담보", "수술담보"]
+                    if cov in generic_terms:
+                        # 쿼리에서 직접 특정 키워드 추출
+                        query_specific_terms = ["유사암", "다빈치", "로봇", "뇌졸중", "급성심근경색", "제자리암", "경계성종양"]
+                        for term in query_specific_terms:
+                            if term in query:
+                                # 담보에서 "암" 제거하고 타입만 추출 (수술/진단)
+                                base = cov.replace("담보", "").replace("암", "")  # "수술" or "진단"
+                                return f"{term} {base}비"  # "유사암 수술비"
+                        # keywords에서도 확인
+                        if keywords:
+                            specific_keywords = [k for k in keywords if k in query_specific_terms]
+                            if specific_keywords:
+                                base = cov.replace("담보", "").replace("암", "")
+                                return f"{specific_keywords[0]} {base}비"
+                    return cov
+
                 # Group by coverage and build sections
                 for cov in coverages_list:
-                    answer_parts.append(f"\n# {cov} 비교\n")
+                    display_title = get_display_title(cov, query_keywords, request.query)
+                    answer_parts.append(f"\n# {display_title} 비교\n")
 
                     # Collect data for this coverage across companies
                     for company in company_names_in_query:
@@ -518,6 +621,12 @@ async def hybrid_search(request: HybridSearchRequest):
                         amount = data.get("amount", 0)
                         amount_str = f"{int(amount):,}원" if amount else "N/A"
                         age_range = data.get("ageRange")
+
+                        # 보장금액이 없으면 명시적 메시지 표시
+                        if not amount and coverage_name_full == cov:
+                            # 담보명이 검색어 그대로면 DB에서 찾지 못한 것
+                            answer_parts.append(f"\n**{company}**: 해당 담보 정보를 찾을 수 없습니다.")
+                            continue
 
                         answer_parts.append(f"\n**{company}** ({product_name})")
                         answer_parts.append(f"- 담보: {coverage_name_full}")
@@ -539,17 +648,21 @@ async def hybrid_search(request: HybridSearchRequest):
                 answer_parts.append("\n\n## 주요 차이점")
 
                 # Analyze differences per coverage
+                has_valid_comparison = False
                 for cov in coverages_list:
                     valid_data = {}
                     for company in company_names_in_query:
                         key = f"{company}_{cov}"
                         data = comparison_result["comparison"].get(key, {})
-                        if data.get("status") != "no_data":
+                        # 실제 보장금액이 있는 데이터만 유효로 처리
+                        if data.get("status") != "no_data" and data.get("amount"):
                             valid_data[company] = data
 
                     if len(valid_data) >= 2:
-                        answer_parts.append(f"\n### {cov}")
-                        # 보장금액 비교 (None을 0으로 처리)
+                        has_valid_comparison = True
+                        display_title = get_display_title(cov, query_keywords, request.query)
+                        answer_parts.append(f"\n### {display_title}")
+                        # 보장금액 비교
                         amounts = [(k, v.get("amount") or 0) for k, v in valid_data.items()]
                         amounts.sort(key=lambda x: x[1], reverse=True)
 
@@ -558,6 +671,10 @@ async def hybrid_search(request: HybridSearchRequest):
                             answer_parts.append(f"- **보장금액**: {amounts[0][0]}이(가) {amounts[1][0]}보다 {int(diff):,}원 더 높습니다.")
                         else:
                             answer_parts.append(f"- **보장금액**: 모든 상품이 동일한 보장금액을 제공합니다 ({int(amounts[0][1]):,}원)")
+
+                if not has_valid_comparison:
+                    # 유효한 비교 데이터가 없으면 메시지 표시
+                    answer_parts.append("\n비교 가능한 담보 데이터가 없습니다.")
 
                 # 종합 판단
                 if comparison_result.get("recommendation"):
@@ -709,17 +826,13 @@ async def hybrid_search(request: HybridSearchRequest):
             context=context_str
         )
 
-        # 7. Generate LLM answer (DISABLED - 충분히 검토 후 활성화 예정)
-        # print(f"[DEBUG] Starting LLM generation with prompt length: {len(prompt)}")
-        # import time
-        # start_time = time.time()
-        # llm_answer = llm_client.generate(prompt)
-        # elapsed = time.time() - start_time
-        # print(f"[DEBUG] LLM generation completed in {elapsed:.2f}s")
-
-        # LLM 호출 대신 검색된 데이터만 반환
-        print(f"[DEBUG] LLM generation DISABLED - returning search results only")
-        llm_answer = "검색 결과를 확인해주세요. (LLM 응답 생성은 현재 비활성화되어 있습니다)"
+        # 7. Generate LLM answer
+        print(f"[DEBUG] Starting LLM generation with prompt length: {len(prompt)}")
+        import time
+        start_time = time.time()
+        llm_answer = llm_client.generate(prompt)
+        elapsed = time.time() - start_time
+        print(f"[DEBUG] LLM generation completed in {elapsed:.2f}s")
 
         # 8. Format comparison table (use enriched clauses from context)
         enriched_clauses = context.get('clauses', []) if isinstance(context, dict) else []
@@ -770,7 +883,7 @@ async def get_companies():
     보험사 리스트 조회
 
     Returns:
-        List of company names
+        List of companies with name (DB명) and displayName (표시명)
     """
     if not retriever:
         raise HTTPException(status_code=503, detail="Service not initialized")
@@ -786,7 +899,13 @@ async def get_companies():
                 ORDER BY company_name
             """)
 
-            companies = [row[0] for row in cur.fetchall()]
+            companies = []
+            for row in cur.fetchall():
+                db_name = row[0]
+                companies.append({
+                    "name": db_name,
+                    "displayName": get_display_name(db_name)
+                })
             cur.close()
 
             return {"companies": companies}
@@ -804,7 +923,7 @@ async def get_company_products(company_name: str):
     특정 보험사의 상품 리스트 조회
 
     Args:
-        company_name: 보험사명
+        company_name: 보험사명 (별칭 지원: 삼성화재, 현대해상 등)
 
     Returns:
         List of products
@@ -816,8 +935,9 @@ async def get_company_products(company_name: str):
         import psycopg2
         from urllib.parse import unquote
 
-        # URL 디코딩
+        # URL 디코딩 및 별칭 해석
         company_name = unquote(company_name)
+        company_name = resolve_company_name(company_name)
 
         conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
         try:
@@ -852,7 +972,7 @@ async def get_product_coverages(company_name: str, product_name: str):
     특정 보험사의 특정 상품의 담보 리스트 조회
 
     Args:
-        company_name: 보험사명
+        company_name: 보험사명 (별칭 지원: 삼성화재, 현대해상 등)
         product_name: 상품명
 
     Returns:
@@ -865,8 +985,9 @@ async def get_product_coverages(company_name: str, product_name: str):
         import psycopg2
         from urllib.parse import unquote
 
-        # URL 디코딩
+        # URL 디코딩 및 별칭 해석
         company_name = unquote(company_name)
+        company_name = resolve_company_name(company_name)
         product_name = unquote(product_name)
 
         conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
@@ -933,7 +1054,7 @@ async def get_company_coverages(company_name: str):
     특정 보험사의 담보 리스트 조회
 
     Args:
-        company_name: 보험사명
+        company_name: 보험사명 (별칭 지원: 삼성화재, 현대해상 등)
 
     Returns:
         List of coverages with benefit amounts
@@ -945,8 +1066,9 @@ async def get_company_coverages(company_name: str):
         import psycopg2
         from urllib.parse import unquote
 
-        # URL 디코딩
+        # URL 디코딩 및 별칭 해석
         company_name = unquote(company_name)
+        company_name = resolve_company_name(company_name)
 
         conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
         try:
@@ -1010,6 +1132,44 @@ async def get_company_coverages(company_name: str):
 
     except Exception as e:
         print(f"Error in get_company_coverages: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/coverages")
+async def get_all_coverages():
+    """
+    전체 담보 목록 조회 (비교 쿼리용)
+
+    Returns:
+        List of unique coverage names across all companies
+    """
+    if not retriever:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    try:
+        import psycopg2
+
+        conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT cov.coverage_name
+                FROM coverage cov
+                JOIN product p ON cov.product_id = p.id
+                ORDER BY cov.coverage_name
+            """)
+
+            coverages = [row[0] for row in cur.fetchall() if row[0] and len(row[0].strip()) >= 3]
+            cur.close()
+
+            return {"coverages": coverages}
+        finally:
+            conn.close()
+
+    except Exception as e:
+        print(f"Error in get_all_coverages: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

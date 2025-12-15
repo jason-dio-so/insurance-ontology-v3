@@ -516,6 +516,10 @@ class ProductComparer:
             if "수술" in query_keywords:
                 keywords.append("수술")
 
+            # 특수 키워드: 다빈치 로봇 수술 (query_keywords에서 추출)
+            if "다빈치" in query_keywords or "로봇" in query_keywords:
+                keywords.append("다빈치")
+
         # 2. query_keywords가 없거나 충분하지 않으면 coverage에서 추출
         if not keywords:
             # 구체적 키워드 먼저 추출 (우선순위 높음)
@@ -827,10 +831,19 @@ class ProductComparer:
         # 추천 메시지 구성
         recommendation = []
 
-        recommendation.append(
-            f"{max_amount_company[0]}의 보장금액이 "
-            f"{max_amount_company[1]['amount']:,}원으로 가장 높습니다."
-        )
+        # 보장금액이 모두 동일한지 확인
+        amounts = [d.get("amount", 0) for d in valid_companies.values()]
+        all_same_amount = len(set(amounts)) == 1
+
+        if all_same_amount:
+            recommendation.append(
+                f"모든 상품이 동일한 보장금액 {max_amount_company[1]['amount']:,}원을 제공합니다."
+            )
+        else:
+            recommendation.append(
+                f"{max_amount_company[0]}의 보장금액이 "
+                f"{max_amount_company[1]['amount']:,}원으로 가장 높습니다."
+            )
 
         if min_premium_company:
             recommendation.append(
