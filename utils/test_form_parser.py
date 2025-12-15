@@ -40,19 +40,115 @@ def is_form_table(table: List[List[str]], empty_threshold: float = 0.6) -> bool:
     테이블이 폼 형태인지 판단
 
     조건:
-    - 전체 셀의 60% 이상이 비어있음
-    - 열 수가 5개 이상 (병합 셀로 인해 많은 열 생성)
+    1. 전체 셀의 60% 이상이 비어있음
+    2. 열 수가 5개 이상 (병합 셀로 인해 많은 열 생성)
+    3. 최소 5행 이상 (단순 헤더 테이블 제외)
+    4. 키-값 쌍이 3개 이상 추출 가능 (실제 폼인지 검증)
     """
     if not table or not table[0]:
         return False
 
+    # 조건 1: 최소 행 수
+    if len(table) < 5:
+        return False
+
+    # 조건 2: 빈 셀 비율
     total_cells = sum(len(row) for row in table)
     empty_cells = sum(1 for row in table for cell in row if cell == "")
     empty_ratio = empty_cells / total_cells if total_cells > 0 else 0
 
-    num_cols = len(table[0])
+    if empty_ratio < empty_threshold:
+        return False
 
-    return empty_ratio >= empty_threshold and num_cols >= 5
+    # 조건 3: 열 수
+    num_cols = len(table[0])
+    if num_cols < 5:
+        return False
+
+    # 조건 4: 실제 키-값 쌍 추출 가능 여부 (샘플 검증)
+    kv_count = _count_potential_key_values(table)
+    if kv_count < 3:
+        return False
+
+    # 조건 5: 실제 파싱 시 필드가 추출되는지 확인
+    try:
+        result = _quick_parse_check(table)
+        if result < 2:  # 최소 2개 필드 필요
+            return False
+    except:
+        return False
+
+    # 조건 6: 약관 특유 패턴 제외 (조항 설명 테이블)
+    if _is_terms_clause_table(table):
+        return False
+
+    return True
+
+
+def _is_terms_clause_table(table: List[List[str]]) -> bool:
+    """
+    약관 조항 설명 테이블인지 확인 (폼이 아님)
+
+    특징:
+    - "최초의 계약", "갱신된 계약" 패턴
+    - "보험계약일부터", "보험가입금액" 패턴
+    - 긴 조항 설명 텍스트
+    """
+    terms_patterns = [
+        "최초의 계약", "갱신된 계약", "보험계약일부터",
+        "보험가입금액 50%", "보험가입금액 100%",
+        "보험수익자에게 지급", "연간 1회에 한하여"
+    ]
+
+    # 테이블 텍스트 추출
+    all_text = " ".join(
+        cell for row in table for cell in row if cell.strip()
+    )
+
+    # 약관 패턴이 2개 이상 있으면 조항 테이블로 판단
+    match_count = sum(1 for p in terms_patterns if p in all_text)
+    if match_count >= 2:
+        return True
+
+    return False
+
+
+def _quick_parse_check(table: List[List[str]]) -> int:
+    """
+    빠른 파싱 검증 - 실제 필드 추출 개수 반환
+    """
+    from utils.test_form_parser import parse_form_table
+    result = parse_form_table(table)
+    return len(result.get('fields', {}))
+
+
+def _count_potential_key_values(table: List[List[str]]) -> int:
+    """
+    테이블에서 추출 가능한 키-값 쌍 개수 추정
+    """
+    key_patterns = [
+        "계약자", "피보험자", "만기", "납기", "보험료", "플랜", "방법",
+        "관계", "주민번호", "상해급수", "직업", "환급금", "구분", "가입금액",
+        "담보", "보장", "합계", "성별", "나이", "기간", "보험", "금액"
+    ]
+
+    kv_count = 0
+
+    for row in table:
+        non_empty = [(i, cell.strip()) for i, cell in enumerate(row) if cell.strip()]
+
+        # 2~6개 비어있지 않은 셀이 있는 행에서 키-값 패턴 찾기
+        if 2 <= len(non_empty) <= 6:
+            for idx, cell in non_empty:
+                # 키처럼 보이는 셀
+                if any(pattern in cell for pattern in key_patterns):
+                    # 오른쪽에 값이 있는지 확인
+                    right_cells = [(i, c) for i, c in non_empty if i > idx]
+                    if right_cells:
+                        kv_count += 1
+                        break  # 행당 1개만 카운트
+
+    return kv_count
 
 
 def parse_form_table(table: List[List[str]]) -> Dict[str, Any]:
@@ -126,8 +222,10 @@ def is_header_data_pattern(header_row: List[str], data_row: List[str]) -> bool:
     - 헤더행: 레이블만 있음 (값 없음)
     - 데이터행: 값들이 헤더와 유사한 위치에 있음
 
-    주의: 헤더행에 값(금액, 숫자)이 있으면 병렬 구조이므로 False
+    주의: 헤더행에 값(금액, 숫자, 날짜)이 있으면 병렬 구조이므로 False
     """
+    import re
+
     header_cells = [(i, c) for i, c in enumerate(header_row) if c.strip()]
     data_cells = [(i, c) for i, c in enumerate(data_row) if c.strip()]
 
@@ -136,19 +234,30 @@ def is_header_data_pattern(header_row: List[str], data_row: List[str]) -> bool:
 
     def is_value_like(text: str) -> bool:
         """값처럼 보이는지 (금액, 숫자, 날짜 등)"""
-        import re
         text = text.strip()
         # 금액 패턴
-        if '원' in text or ',' in text:
+        if '원' in text and any(c.isdigit() for c in text):
             return True
-        # 숫자만 있는 경우
-        clean = text.replace(',', '').replace('.', '').replace('-', '')
+        # 날짜 패턴 (2025.09.24 ~ ...)
+        if re.match(r'^\d{4}\.\d{2}\.\d{2}', text):
+            return True
+        # "N급", "N세", "N명" 패턴
+        if re.match(r'^\d+[급세명]$', text):
+            return True
+        # "남 / 30세" 같은 성별/나이 값
+        if re.match(r'^[남여]\s*/\s*\d+세', text):
+            return True
+        # 주민번호/고객번호 패턴
+        if re.match(r'.*\d{6}-', text):
+            return True
+        # 숫자만 있는 경우 (길이 2 이상)
+        clean = text.replace(',', '').replace('.', '').replace('-', '').replace(' ', '')
         if clean.isdigit() and len(clean) >= 2:
             return True
         # 날짜/기간 패턴
-        if '년' in text or '세' in text[-2:]:
+        if '년' in text and any(c.isdigit() for c in text):
             return True
-        # "N명" 패턴 (1명, 5명 등) - "직업명" 같은건 제외
+        # "N명" 패턴 (1명, 5명 등)
         if re.match(r'^\d+명$', text):
             return True
         return False
@@ -157,6 +266,13 @@ def is_header_data_pattern(header_row: List[str], data_row: List[str]) -> bool:
     header_texts = [c for _, c in header_cells]
     has_value_in_header = any(is_value_like(t) for t in header_texts)
     if has_value_in_header:
+        return False
+
+    # 헤더행 내에서 키-값 쌍이 이미 존재하면 병렬 구조
+    # (짧은 텍스트 다음에 긴 텍스트가 오는 패턴)
+    key_count = sum(1 for t in header_texts if len(t) < 15 and not is_value_like(t))
+    if key_count >= 2 and len(header_cells) >= 4:
+        # 키가 2개 이상이고 셀이 4개 이상이면 병렬 구조 가능성
         return False
 
     # 헤더행의 셀들이 대부분 짧은 텍스트인지 (레이블처럼)
@@ -223,79 +339,84 @@ def extract_key_value_pairs_single_row(non_empty: List[Tuple[int, str]]) -> List
     """
     단일 행에서 키-값 쌍 추출
 
-    패턴: 2열 병렬 구조 - 좌측(col 0~5) + 우측(col 6~15)
-    예: [(0, '만기/납기'), (3, '100세만기'), (8, '납입보험료'), (11, '162,840원')]
-        → [('만기/납기', '100세만기'), ('납입보험료', '162,840원')]
+    개선된 로직:
+    1. 키-값이 인접한 경우 우선 매칭 (현대 설계서: col0-col3, col4-col5)
+    2. 그 다음 좌측/우측 영역으로 분리하여 매칭 (DB 설계서: col0~5, col8~11)
     """
     pairs = []
 
     key_patterns = [
         "계약자", "계 약 자", "피보험자", "만기", "납기", "보험료", "플랜", "방법",
-        "관계", "주민번호", "상해급수", "직업", "운행차량", "환급금",
-        "구분", "가입금액", "담보", "보장", "합계"
+        "관계", "주민번호", "상해급수", "직업", "운행차량", "환급금", "차량용도",
+        "구분", "가입금액", "담보", "보장", "합계", "성별", "나이", "기간"
     ]
 
     def is_key_like(text: str) -> bool:
         """키(레이블)처럼 보이는지 판단"""
+        import re
+
         # 값 패턴 먼저 체크 (값이면 키 아님)
         if '세만기' in text or '년납' in text or '년/100세' in text:
             return False
-        if '종_' in text or '플랜' in text.lower():  # 상품 플랜 값
+        if '종_' in text or '플랜' in text.lower():
             return False
-        if text in ['월납', '연납', '일시납']:
+        if text in ['월납', '연납', '일시납', '-']:
+            return False
+        # 날짜 패턴 (2025.09.24 ~ ...)
+        if re.match(r'^\d{4}\.\d{2}\.\d{2}', text):
+            return False
+        # 주민번호/고객번호 패턴
+        if re.match(r'.*\d{6}-', text):
+            return False
+        # 금액 패턴
+        if '원' in text and any(c.isdigit() for c in text):
+            return False
+        # "N급", "N세", "N명" 패턴
+        if re.match(r'^\d+[급세명]$', text):
+            return False
+        # "남 / 30세" 같은 성별/나이 값
+        if re.match(r'^[남여]\s*/\s*\d+세', text):
             return False
 
         # 명시적 키 패턴 매칭
         if any(pattern in text for pattern in key_patterns):
             return True
         # 짧고 숫자/단위가 아닌 텍스트
-        if len(text) < 12:
+        if len(text) < 15:
             clean = text.replace(',', '').replace('.', '').replace('-', '').replace(' ', '')
-            if not clean.isdigit() and '원' not in text and '명' not in text:
-                if not (text.endswith('세') or text.endswith('년')):
-                    return True
+            if not clean.isdigit() and '원' not in text:
+                return True
         return False
 
-    # 좌측/우측 영역으로 분리 (col 6을 경계로)
-    left_cells = [(i, c) for i, c in non_empty if i <= 5]
-    right_cells = [(i, c) for i, c in non_empty if i >= 6]
+    # 셀을 키/값으로 분류
+    keys = [(i, c) for i, c in non_empty if is_key_like(c)]
+    vals = [(i, c) for i, c in non_empty if not is_key_like(c)]
 
-    def extract_from_region(cells: List[Tuple[int, str]]) -> List[Tuple[str, str]]:
-        """영역 내에서 키-값 쌍 추출"""
-        region_pairs = []
-        if not cells:
-            return region_pairs
+    if not keys or not vals:
+        return pairs
 
-        # 키와 값 분류
-        keys = [(i, c) for i, c in cells if is_key_like(c)]
-        vals = [(i, c) for i, c in cells if not is_key_like(c)]
+    # 각 키에 대해 가장 가까운 오른쪽 값 매칭 (거리 제한 없이)
+    used_vals = set()
+    key_val_pairs = []
 
-        # 각 키에 대해 가장 가까운 오른쪽 값 매칭
-        used_vals = set()
-        for key_idx, key_text in keys:
-            best_val = None
-            best_dist = float('inf')
+    for key_idx, key_text in sorted(keys, key=lambda x: x[0]):
+        best_val = None
+        best_dist = float('inf')
 
-            for val_idx, val_text in vals:
-                if val_idx in used_vals:
-                    continue
-                if val_idx > key_idx:  # 값은 키 오른쪽에 있어야 함
-                    dist = val_idx - key_idx
-                    if dist < best_dist:
-                        best_dist = dist
-                        best_val = (val_idx, val_text)
+        for val_idx, val_text in vals:
+            if val_idx in used_vals:
+                continue
+            if val_idx > key_idx:  # 값은 키 오른쪽에 있어야 함
+                dist = val_idx - key_idx
+                if dist < best_dist:
+                    best_dist = dist
+                    best_val = (val_idx, val_text)
 
-            if best_val:
-                used_vals.add(best_val[0])
-                region_pairs.append((key_text.strip(), best_val[1].strip()))
+        if best_val:
+            used_vals.add(best_val[0])
+            key_val_pairs.append((key_text.strip(), best_val[1].strip()))
 
-        return region_pairs
-
-    # 좌측과 우측 각각에서 키-값 추출
-    pairs.extend(extract_from_region(left_cells))
-    pairs.extend(extract_from_region(right_cells))
-
-    return pairs
+    return key_val_pairs
 
 
 def test_form_parser():
