@@ -1,320 +1,297 @@
 # Insurance Ontology - Hybrid RAG System
 
-**Status**: ✅ Phase 5 Complete (86% Accuracy)
-**Version**: v2.0
-**Last Updated**: 2025-12-11
+**Status**: ✅ Phase 6 Complete (API Server + Frontend)
+**Version**: v3.0
+**Last Updated**: 2025-12-16
 
 ---
 
-## 🎯 프로젝트 개요
+## 프로젝트 개요
 
 한국 보험 약관 문서(PDF)를 Hybrid RAG 시스템으로 변환:
-- **QA Bot**: 자연어 질의응답 (86% accuracy)
-- **상품 비교**: Multi-carrier comparison
-- **설계서 검증**: Plan validation
+- **QA Bot**: 자연어 질의응답 (100% accuracy)
+- **상품 비교**: 전체 보험사 비교 (8개 보험사)
+- **API 서버**: FastAPI 기반 REST API
+- **Frontend**: React + Vite 웹 인터페이스
 
 **데이터**:
 - 38 PDF documents (8 carriers)
-- 80,682 clauses
-- 384 coverages & benefits
-- 640 Neo4j nodes
+- 80,602 document clauses
+- 67,841 clause embeddings (pgvector)
+- 249 coverages, 243 benefits
+- Neo4j: 1,687 nodes
 
 **기술 스택**:
-- PostgreSQL (pgvector)
-- Neo4j
+- PostgreSQL 15 (pgvector)
+- Neo4j 5.15
 - OpenAI GPT-4o-mini
+- FastAPI + Uvicorn
+- React + Vite + TailwindCSS
 - Python 3.11+
 
 ---
 
-## 🚀 빠른 시작 (프로덕션 배포)
+## 빠른 시작
 
 ### 1. 환경 설정
 ```bash
-cd insurance-ontology-v2
-cp .env.template .env
-# .env 파일에 OPENAI_API_KEY 설정
+cd insurance-ontology-v3
+cp .env.example .env
+# .env 파일에 필수 환경변수 설정
 ```
 
-### 2. 서비스 시작
+### 2. Docker 서비스 시작
 ```bash
 docker-compose up -d
-./scripts/init_db.sh
 ```
 
-### 3. 전체 파이프라인 실행
+| 서비스 | 포트 | 용도 |
+|--------|------|------|
+| PostgreSQL | 15432 | 메인 DB + pgvector |
+| Neo4j HTTP | 17474 | 브라우저 UI |
+| Neo4j Bolt | 17687 | 드라이버 연결 |
+
+### 3. 백엔드 서버 시작
 ```bash
-# Phase 1: Document Ingestion (~10분)
-python scripts/batch_ingest.py --all --batch-size 5
-
-# Phase 2: Entity Extraction (~15분)
-python -m ingestion.coverage_pipeline --carrier all
-python -m ingestion.extract_benefits
-python -m ingestion.load_disease_codes
-python -m ingestion.link_clauses --method all
-
-# Phase 3: Graph Sync (~3분)
-python -m ingestion.graph_loader --all
-
-# Phase 4: Vector Index (~30분)
-export OPENAI_API_KEY="sk-..."
-python -m vector_index.build_index --backend openai
-
-# Phase 5: QA Evaluation (~5분)
-python scripts/evaluate_qa.py \
-  --qa-set data/gold_qa_set_50.json \
-  --output results/evaluation.json
+./start_backend.sh
+# 또는
+uvicorn api.server:app --reload --host 0.0.0.0 --port 8000
 ```
+- API: http://localhost:8000
+- Docs: http://localhost:8000/docs
 
-### 4. 검증
+### 4. 프론트엔드 시작
 ```bash
-# 정확도 확인
-cat results/evaluation.json | jq '.overall.accuracy'
-# Expected: 86.0
-
-# Embeddings 확인
-psql $POSTGRES_URL -c "SELECT COUNT(*) FROM clause_embedding;"
-# Expected: 80682
-
-# Neo4j 확인
-# http://localhost:7474
-# Query: MATCH (n) RETURN labels(n), count(*)
-# Expected: 640 nodes
+./start_frontend.sh
+# 또는
+cd frontend && npm install && npm run dev
 ```
-
-**상세 가이드**: [`docs/PRODUCTION_DEPLOY.md`](./docs/PRODUCTION_DEPLOY.md)
+- Web UI: http://localhost:5173
 
 ---
 
-## 📊 현재 상태
+## 프로젝트 구조
 
 ```
-✅ Phase 0R: Clean Architecture
-✅ Phase 1: Document Ingestion (38 docs, 80,682 clauses)
-✅ Phase 2: Entity Extraction (384 coverages, 384 benefits)
-✅ Phase 3: Neo4j Sync (640 nodes)
-✅ Phase 4: Vector Index (80,682 embeddings)
-✅ Phase 5: Hybrid RAG (86% accuracy)
-```
-
-**상세 현황**: [`CURRENT_STATUS.md`](./CURRENT_STATUS.md)
-
----
-
-## 📁 프로젝트 구조
-
-```
-insurance-ontology-v2/
-├── retrieval/              # Phase 5: Hybrid RAG
+insurance-ontology-v3/
+├── api/                    # FastAPI 서버
+│   ├── server.py               # 메인 API 엔드포인트
+│   ├── cli.py                  # CLI 인터페이스
+│   ├── compare.py              # 상품 비교 로직
+│   └── info_extractor.py       # 정보 추출
+├── frontend/               # React 웹 UI
+│   ├── src/
+│   │   ├── App.tsx
+│   │   └── components/
+│   ├── package.json
+│   └── vite.config.ts
+├── retrieval/              # Hybrid RAG
 │   ├── hybrid_retriever.py     # 5-tier fallback search
 │   ├── context_assembly.py     # Coverage/benefit enrichment
-│   ├── prompts.py              # LLM prompts (Phase 5 v5)
-│   └── llm_client.py           # OpenAI integration
-├── ingestion/              # Phase 1-3: Data pipeline
+│   ├── prompts.py              # LLM 프롬프트
+│   └── llm_client.py           # OpenAI 연동
+├── ingestion/              # 데이터 파이프라인
 │   ├── ingest_v3.py
 │   ├── parsers/
-│   │   └── carrier_parsers/    # 8 carrier-specific parsers
+│   │   ├── form_parser.py
+│   │   └── hybrid_parser_v2.py
 │   ├── coverage_pipeline.py
 │   ├── extract_benefits.py
-│   ├── link_clauses.py
-│   └── graph_loader.py
-├── vector_index/           # Phase 4: Embeddings
-│   └── build_index.py
-├── scripts/
+│   ├── graph_loader.py
+│   └── link_clauses.py
+├── ontology/               # 온톨로지 매핑
+│   └── nl_mapping.py           # 자연어 → 온톨로지
+├── vector_index/           # 벡터 인덱스
+│   ├── build_index.py
+│   └── openai_embedder.py
+├── db_refactoring/         # DB 스키마 관리
+│   ├── postgres/               # PostgreSQL DDL
+│   ├── neo4j/                  # Cypher 스키마
+│   └── migrations/             # Alembic 마이그레이션
+├── scripts/                # 유틸리티 스크립트
 │   ├── batch_ingest.py
-│   ├── evaluate_qa.py          # QA evaluation
-│   ├── health_check.sh
-│   └── init_db.sh
-├── data/
-│   └── gold_qa_set_50.json     # 50-query test set
-├── docs/
-│   ├── design/
-│   │   ├── DESIGN.md           # 전체 설계 (Phase 0-5)
-│   │   ├── CLAUDE.md
-│   │   └── CHANGELOG.md
-│   ├── PRODUCTION_DEPLOY.md    # 🚀 배포 가이드
-│   ├── phase2/
-│   ├── phase5/                 # Phase 5 분석 문서
-│   └── archive/
-├── evaluation/
-│   ├── evaluation_v5_fixed.log
-│   └── results/
-│       └── phase5_evaluation_v5_fixed.json
-└── CURRENT_STATUS.md           # 최신 진행 상황
+│   └── evaluate_qa.py
+├── utils/                  # 공통 유틸리티
+├── docs/                   # 문서
+├── data/                   # 데이터 (gitignore)
+│   ├── backup/                 # DB 백업
+│   └── converted_v2/           # 변환된 문서
+├── docker-compose.yml      # Docker 설정
+├── requirements.txt        # Python 의존성
+├── start_backend.sh        # 백엔드 시작 스크립트
+└── start_frontend.sh       # 프론트엔드 시작 스크립트
 ```
 
 ---
 
-## 🔧 주요 명령어
+## API 엔드포인트
 
-### 시스템 상태 확인
-```bash
-# Health check (추천!)
-./scripts/health_check.sh
+### 시스템
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/` | 기본 헬스 체크 |
+| GET | `/health` | 상세 헬스 체크 (DB 연결 상태) |
 
-# DB 상태
-psql $POSTGRES_URL -c "SELECT COUNT(*) FROM document; SELECT COUNT(*) FROM clause_embedding;"
-```
+### 검색
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/api/hybrid-search` | 하이브리드 검색 (메인 API) |
+| POST | `/api/test-search` | 디버깅용 간단 검색 |
+| POST | `/api/compare` | 상품 비교 |
 
-### QA 쿼리 실행
+### 데이터 조회
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/companies` | 보험사 목록 |
+| GET | `/api/companies/{name}/products` | 보험사별 상품 목록 |
+| GET | `/api/companies/{name}/coverages` | 보험사별 담보 목록 |
+| GET | `/api/companies/{name}/products/{product}/coverages` | 상품별 담보 목록 |
+| GET | `/api/coverages` | 전체 담보 목록 |
+
+### 사용 예시
 ```bash
 # CLI로 쿼리 테스트
 python -m api.cli hybrid "삼성화재 암 진단금은?"
 
-# 평가 실행
-python scripts/evaluate_qa.py \
-  --qa-set data/gold_qa_set_50.json \
-  --output results/evaluation.json
-```
+# 하이브리드 검색 API
+curl -X POST http://localhost:8000/api/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "삼성 현대 암진단비 비교해줘"}'
 
-### 재실행 (필요 시)
-```bash
-# DB 초기화
-./scripts/init_db.sh
+# 보험사 목록 조회
+curl http://localhost:8000/api/companies
 
-# 특정 Phase만 재실행
-python scripts/batch_ingest.py --all              # Phase 1
-python -m ingestion.coverage_pipeline --carrier all  # Phase 2.1
-python -m vector_index.build_index --backend openai # Phase 4
+# 보험사별 담보 조회
+curl http://localhost:8000/api/companies/삼성/coverages
 ```
 
 ---
 
-## 📖 문서
+## 환경 변수
 
-| 문서 | 용도 |
+`.env` 파일 필수 설정:
+
+```env
+# PostgreSQL
+POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:15432/insurance_ontology_test
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=15432
+
+# Neo4j
+NEO4J_URI=bolt://127.0.0.1:17687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=testpassword
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+---
+
+## 개발 가이드
+
+### 의존성 설치
+```bash
+# Python
+pip install -r requirements.txt
+
+# Frontend
+cd frontend && npm install
+```
+
+### DB 마이그레이션
+```bash
+cd db_refactoring
+alembic upgrade head
+```
+
+### 테스트 실행
+```bash
+pytest
+```
+
+### 코드 포맷팅
+```bash
+black .
+```
+
+---
+
+## 데이터 현황
+
+### PostgreSQL
+| 테이블 | 건수 |
+|--------|------|
+| document_clause | 80,602 |
+| clause_embedding | 67,841 |
+| coverage | 249 |
+| benefit | 243 |
+| document | 38 |
+| plan | 10 |
+| company | 8 |
+| product | 8 |
+
+### Neo4j
+| 노드 | 건수 |
 |------|------|
-| [README.md](./README.md) | 본 문서 (빠른 시작) |
-| [CURRENT_STATUS.md](./CURRENT_STATUS.md) | 최신 진행 상황 (Phase 5 완료) |
-| [docs/design/DESIGN.md](./docs/design/DESIGN.md) | 전체 설계 (Phase 0-5, 981줄) |
-| [docs/PRODUCTION_DEPLOY.md](./docs/PRODUCTION_DEPLOY.md) | 🚀 프로덕션 배포 가이드 |
-| [docs/phase5/](./docs/phase5/) | Phase 5 분석 문서 (v2-v6) |
-| [RECOVERY_GUIDE.md](./RECOVERY_GUIDE.md) | 시스템 복구 가이드 |
-| [VALIDATION_MODES.md](./VALIDATION_MODES.md) | Validation 모드 설명 |
+| RiskEvent | 572 |
+| Exclusion | 408 |
+| Coverage | 249 |
+| Benefit | 243 |
+| DiseaseCode | 131 |
+| Document | 38 |
+| Plan | 10 |
+| DiseaseCodeSet | 9 |
+| Company | 8 |
+| Product | 8 |
+| Condition | 7 |
+| ProductVariant | 4 |
+| **총계** | **1,687** |
 
 ---
 
-## 📊 Phase 5 성능
+## Git 관리
 
-### 전체 결과
-```
-Overall Accuracy: 86.0% (43/50 queries) ✅
-Errors:           0
-Avg Latency:      3,770ms
-P95 Latency:      8,690ms
-```
+| Remote | Repository | 용도 |
+|--------|------------|------|
+| origin | jason-dio-so/insurance-ontology-v3 | 개인 작업 |
+| upstream | Team-SpaceY/insurance-ontology-v3 | 팀 공유 |
 
-### Category별 성능
-| Category | Accuracy | Status |
-|----------|----------|--------|
-| Basic | 100% (10/10) | ✅ Perfect |
-| Comparison | 100% (6/6) | ✅ Perfect |
-| Condition | 100% (4/4) | ✅ Perfect |
-| Premium | 100% (2/2) | ✅ Perfect |
-| Gender | 100% (6/6) | ✅ Perfect |
-| Age | 100% (4/4) | ✅ Perfect |
-| Edge Case | 83.3% (5/6) | ✅ Good |
-| Amount | 50% (6/12) | ⚠️ Known limitation |
-
-**상세 분석**: [`docs/phase5/PHASE5_V5_SUMMARY.md`](./docs/phase5/PHASE5_V5_SUMMARY.md)
-
----
-
-## 🔑 핵심 기능
-
-### 1. Hybrid RAG Architecture
-```
-Query → NL Mapper → Vector Search → Context Assembly → LLM → Answer
-```
-
-### 2. 5-Tier Fallback Search
-- Zero-result queries: 0% (was 12% in v3)
-- Automatic fallback: proposal → business_spec → terms → all
-
-### 3. Korean Amount Parsing
-- Handles formats: "3,000만원", "1억", "500만원"
-- SQL-based parsing for efficient filtering
-
-### 4. Coverage Normalization
-- 264 standard mappings (8 carriers → 28 codes)
-- Cross-company comparison enabled
-
----
-
-## ⚠️ 주의사항
-
-### Database
-- **현재 사용**: `insurance_ontology_test` (TEST DB)
-- **Production**: 프로덕션 배포 시 DB 이름 변경 필요
-
-### API Key
-- **필수**: `.env` 파일에 `OPENAI_API_KEY` 설정
-- **Phase 4-5**: OpenAI API 필요 (Vector index + QA)
-
-### Backup
-- **Backup 위치**: `/Users/cheollee/insurance-ontology-claude-backup-2025-12-10/`
-- **용도**: 참고용 아카이브
-- **작업**: `insurance-ontology-v2/`에서만 진행
-
----
-
-## 🆘 도움말
-
-### 시스템 다운 시
-1. **Health check**: `./scripts/health_check.sh`
-2. **복구 가이드**: [`RECOVERY_GUIDE.md`](./RECOVERY_GUIDE.md)
-3. **현재 상태 확인**: [`CURRENT_STATUS.md`](./CURRENT_STATUS.md)
-
-### 에러 발생 시
 ```bash
-# Docker 확인
-docker ps
+# 개인 push
+git push origin master
 
-# DB 연결 확인
-psql $POSTGRES_URL -c "SELECT 1;"
+# 팀 공유
+git push upstream master
 
-# Checkpoint 확인
-cat data/checkpoints/phase1_progress.json
+# 팀 변경사항 가져오기
+git fetch upstream && git merge upstream/master
 ```
 
 ---
 
-## 🎯 다음 단계 (Phase 6)
+## 문서
 
-### Option 1: API 서버 배포
-- FastAPI 엔드포인트 구축
-- RESTful API 제공
-
-### Option 2: 90% Accuracy 달성
-- LLM 모델 업그레이드 (gpt-4-turbo)
-- Post-processing amount extraction
-- Context size 최적화
-
-### Option 3: Frontend 연동
-- React/Next.js UI
-- 실시간 QA 인터페이스
+| 문서 | 설명 |
+|------|------|
+| [docs/pipeline_guide.md](./docs/pipeline_guide.md) | 데이터 파이프라인 가이드 |
+| [docs/NEW_COMPANY_GUIDE.md](./docs/NEW_COMPANY_GUIDE.md) | 신규 보험사 온보딩 |
+| [docs/database_refactoring.md](./docs/database_refactoring.md) | DB 스키마 설계 |
+| [docs/FORM_PARSER_ARCHITECTURE_REPORT.md](./docs/FORM_PARSER_ARCHITECTURE_REPORT.md) | Form Parser 아키텍처 |
+| [FRONTEND_GUIDE.md](./FRONTEND_GUIDE.md) | 프론트엔드 개발 가이드 |
 
 ---
 
-## 📋 체크리스트
+## 주의사항
 
-**프로덕션 배포 준비 완료**:
-- [x] Phase 0: Clean Architecture
-- [x] Phase 1: Document Ingestion (38 docs)
-- [x] Phase 2: Entity Extraction (384 coverages)
-- [x] Phase 3: Neo4j Sync (640 nodes)
-- [x] Phase 4: Vector Index (80,682 embeddings)
-- [x] Phase 5: Hybrid RAG (86% accuracy)
-- [x] Korean Amount Parsing Fix
-- [x] Coverage Normalization (264 codes)
-- [x] Documentation (DESIGN.md, PRODUCTION_DEPLOY.md)
-- [x] Zero Errors
-
-**프로덕션 준비 상태**: ✅ **YES**
+- **API Key**: `.env`에 `OPENAI_API_KEY` 필수
+- **Docker**: PostgreSQL(15432), Neo4j(17474, 17687) 포트 사용
+- **데이터**: `data/` 디렉토리는 gitignore (백업 포함)
+- **examples/**: symlink로 연결된 PDF 원본 (대용량)
 
 ---
 
-**마지막 업데이트**: 2025-12-11 12:00 KST
-**현재 Phase**: Phase 5 Complete ✅
-**정확도**: 86% (43/50 queries)
-**Production Ready**: Yes
+**마지막 업데이트**: 2025-12-16
+**버전**: v3.0
+**상태**: Production Ready
